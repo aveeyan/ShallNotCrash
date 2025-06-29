@@ -13,6 +13,7 @@ class TelnetProtocol:
     def get(self, property_path: str) -> str:
         """Sends 'get <property>' and returns the value."""
         cmd = f"get {property_path}\r\n".encode()
+        self.socket.settimeout(2.0)
         self.socket.send(cmd)
         return self._parse_response(self.socket.recv(1024).decode())
     

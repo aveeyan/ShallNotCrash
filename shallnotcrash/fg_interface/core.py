@@ -7,10 +7,11 @@ import time
 from .protocols.telnet import TelnetProtocol
 from .exceptions import FGCommError
 from ..constants.flightgear import FGProps
+from ..constants.connection import FGConnectionConstants
 
 # Constants
-DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 5500
+DEFAULT_HOST = FGConnectionConstants.DEFAULT_HOST
+DEFAULT_PORT = FGConnectionConstants.DEFAULT_PORT
 
 class FGConnection:
     """Handles FlightGear communication with a JSON interface."""

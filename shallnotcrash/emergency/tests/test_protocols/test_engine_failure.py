@@ -1,10 +1,18 @@
 # emergency/tests/test_protocols/test_structural_failure.py
 import pytest
-from shallnotcrash.emergency.protocols.structural_failure import (
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.append(str(PROJECT_ROOT))
+
+# Now use relative imports
+from emergency.protocols.structural_failure import (
     StructuralFailureProtocol,
     STRUCTURAL_FAILURE_PROTOCOL
 )
-from shallnotcrash.constants.flightgear import FGProps
+from constants.flightgear import FGProps
 
 # Test data templates
 BASE_TELEMETRY = {

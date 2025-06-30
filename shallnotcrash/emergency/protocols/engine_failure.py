@@ -1,193 +1,165 @@
 #!/usr/bin/env python3
 """
-Engine Failure Emergency Protocol for Cessna 172P
-Complete implementation with safe constant handling
+Advanced Engine Failure Detection for Cessna 172P
+Provides detailed diagnostic information about engine health
 """
-from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List
+from enum import Enum
 
-# Default engine failure procedures
-ENGINE_FAILURE_DEFAULTS = {
-    'MAX_RESTART_ATTEMPTS': 3,
-    'MIN_FINAL_ALT': 500,  # ft
-    'MIN_RESTART_ALT': 2000  # ft
-}
+# Relative imports within shallnotcrash package
+from ...airplane.constants import EngineThresholds
+from ..constants import EmergencySeverity
 
-class EngineFailureStage(Enum):
-    IMMEDIATE_ACTIONS = auto()
-    RESTART_ATTEMPT = auto()
-    FORCED_LANDING_PREP = auto()
-    FINAL_APPROACH = auto()
+class EngineFailureSeverity(Enum):
+    NORMAL = 0
+    ADVISORY = 1
+    WARNING = 2
+    CRITICAL = 3
+    EMERGENCY = 4
 
 @dataclass
-class ProtocolStage:
-    name: str
-    actions: List[str]
-    conditions: Dict[str, Tuple[float, float]]
-    severity: str
+class EngineDiagnostic:
+    """Detailed engine health diagnosis"""
+    is_failure: bool
+    severity: EngineFailureSeverity
+    confidence: float
+    diagnostics: Dict[str, dict]
+    failed_components: List[str]
 
-class EngineFailureProtocol:
-    """Stateful engine failure emergency protocol"""
+class EngineFailureDetector:
+    """Constants-based engine failure detection with diagnostic details"""
     def __init__(self):
-        self._restart_attempts = 0
-        self._current_stage = EngineFailureStage.IMMEDIATE_ACTIONS
-        self.stages = self._build_stages()
-    
-    def _build_stages(self) -> Dict[EngineFailureStage, ProtocolStage]:
-        """Construct engine failure response protocol"""
-        # Safe constant access with fallbacks
-        max_attempts = self._get_constant('MAX_RESTART_ATTEMPTS', 3)
-        min_final_alt = self._get_constant('MIN_FINAL_ALT', 500)
-        min_restart_alt = self._get_constant('MIN_RESTART_ALT', 2000)
+        # Initialize thresholds from constants
+        self.thresholds = {
+            'rpm': {
+                'normal': (EngineThresholds.RPM_MIN, EngineThresholds.RPM_MAX),
+                'critical': EngineThresholds.ENGINE_FAILURE_RPM
+            },
+            'oil_pressure': {
+                'normal': (EngineThresholds.OIL_PRESS_MIN, EngineThresholds.OIL_PRESS_MAX),
+                'critical': EngineThresholds.OIL_PRESS_CRITICAL
+            },
+            'cht': {
+                'normal': (EngineThresholds.CHT['MIN'], EngineThresholds.CHT['MAX']),
+                'critical': EngineThresholds.CHT['CRITICAL']
+            },
+            'egt': {
+                'normal': (EngineThresholds.EGT_MIN, EngineThresholds.EGT_MAX),
+                'critical': EngineThresholds.EGT_CRITICAL
+            },
+            'oil_temp': {
+                'normal': (EngineThresholds.OIL_TEMP_MIN, EngineThresholds.OIL_TEMP_MAX),
+                'critical': EngineThresholds.OIL_TEMP_CRITICAL
+            },
+            'vibration': {
+                'normal': (0, EngineThresholds.VIBRATION['WARNING']),
+                'critical': EngineThresholds.VIBRATION['CRITICAL']
+            },
+            'fuel_flow': {
+                'normal': (EngineThresholds.FUEL_FLOW['MIN_IDLE'], EngineThresholds.FUEL_FLOW['MAX_NORMAL']),
+                'critical': EngineThresholds.FUEL_FLOW['MIN_IDLE'] * 0.8
+            }
+        }
+
+    def detect(self, telemetry: Dict[str, float]) -> EngineDiagnostic:
+        """Detect engine failure with detailed diagnostics"""
+        diagnostics = {}
+        failed_components = []
+        confidence = 0.0
+        max_severity = EngineFailureSeverity.NORMAL
+
+        # Check each engine parameter
+        for param, thresholds in self.thresholds.items():
+            value = telemetry.get(param, None)
+            status = self._check_parameter(param, value, thresholds)
+            diagnostics[param] = status
+            
+            if status['severity'] != EngineFailureSeverity.NORMAL:
+                # Calculate contribution to confidence
+                severity_weight = status['severity'].value
+                confidence += min(1.0, severity_weight * 0.4)
+                
+                # Track failed components
+                if status['severity'] in [EngineFailureSeverity.CRITICAL, EngineFailureSeverity.EMERGENCY]:
+                    failed_components.append(param)
+                
+                # Track max severity
+                if status['severity'].value > max_severity.value:
+                    max_severity = status['severity']
+        
+        # Determine overall failure state
+        is_failure = confidence > 0.5
+        severity = max_severity
+        
+        return EngineDiagnostic(
+            is_failure=is_failure,
+            severity=severity,
+            confidence=min(1.0, confidence),
+            diagnostics=diagnostics,
+            failed_components=failed_components
+        )
+
+    def _check_parameter(self, param: str, value: float, thresholds: dict) -> dict:
+        """Evaluate a single engine parameter using constant-based thresholds"""
+        if value is None:
+            return {
+                'value': None,
+                'status': 'NO_DATA',
+                'severity': EngineFailureSeverity.ADVISORY,
+                'message': 'Sensor data unavailable'
+            }
+        
+        # Get threshold values
+        normal_range = thresholds.get('normal', (0, 1000))
+        critical_threshold = thresholds.get('critical', 0)
+
+        # Determine if value is critical
+        if 'critical' in thresholds:
+            # For parameters where low is critical (rpm, oil_pressure, fuel_flow)
+            if param in ['rpm', 'oil_pressure', 'fuel_flow']:
+                critical = value < critical_threshold
+            # For parameters where high is critical (others)
+            else:
+                critical = value > critical_threshold
+        else:
+            critical = False
+
+        # Determine if value is within normal range
+        if 'normal' in thresholds:
+            low, high = normal_range
+            in_range = low <= value <= high
+        else:
+            in_range = True
+
+        # Create status
+        if critical:
+            status = 'CRITICAL'
+            severity = EngineFailureSeverity.EMERGENCY
+            message = (f"{param.upper()} in emergency range: {value} "
+                      f"(Threshold: {critical_threshold})")
+        elif not in_range:
+            status = 'WARNING'
+            severity = EngineFailureSeverity.WARNING
+            message = (f"{param.upper()} out of normal range: {value} "
+                      f"(Normal: {normal_range})")
+        else:
+            status = 'NORMAL'
+            severity = EngineFailureSeverity.NORMAL
+            message = f"{param.upper()} within normal parameters"
         
         return {
-            EngineFailureStage.IMMEDIATE_ACTIONS: ProtocolStage(
-                name="Immediate Actions",
-                actions=[
-                    "Establish best glide speed (67 KIAS)",
-                    "Pitch for 67 KIAS, trim to maintain",
-                    "Identify landing site within glide range",
-                    "Carb heat ON (if equipped)",
-                    "Fuel selector: BOTH",
-                    "Mixture: RICH",
-                    "Throttle: CHECK",
-                    "Magnetos: CHECK BOTH→L→R→BOTH"
-                ],
-                conditions={
-                    'rpm': (0, 1000)  # Using safe value instead of undefined constant
-                },
-                severity="EMERGENCY"
-            ),
-            EngineFailureStage.RESTART_ATTEMPT: ProtocolStage(
-                name="Restart Attempt",
-                actions=[
-                    "Fuel pump: ON",
-                    "Throttle: 1/2 inch OPEN",
-                    "Mixture: CYCLE (lean-rich-lean)",
-                    f"Attempt restart (if altitude > {min_restart_alt} ft)"
-                ],
-                conditions={
-                    'altitude': (min_final_alt, 10000),
-                    'restart_attempts': (0, max_attempts)
-                },
-                severity="CRITICAL"
-            ),
-            EngineFailureStage.FORCED_LANDING_PREP: ProtocolStage(
-                name="Forced Landing Preparation",
-                actions=[
-                    "Mayday call: declare emergency",
-                    "Seatbelts: SECURE",
-                    "Doors: UNLATCH",
-                    "Flaps: AS REQUIRED (consider no-flap landing)",
-                    "Master switch: OFF before touchdown",
-                    "Fuel selector: OFF",
-                    "Mixture: IDLE CUTOFF"
-                ],
-                conditions={
-                    'altitude': (500, min_final_alt),
-                    'distance_to_target': (0, 3)  # NM
-                },
-                severity="EMERGENCY"
-            ),
-            EngineFailureStage.FINAL_APPROACH: ProtocolStage(
-                name="Final Approach",
-                actions=[
-                    "Speed: 61 KIAS (add 1/2 gust factor)",
-                    "Airspeed: MONITOR constantly",
-                    "Spoilers: PREPARE (if equipped)",
-                    "Touchdown: WHEELS FIRST (if tricycle)",
-                    "Braking: MAXIMUM after touchdown"
-                ],
-                conditions={
-                    'altitude': (0, 500),
-                    'airspeed': (55, 70)
-                },
-                severity="CRITICAL"
-            )
+            'value': value,
+            'status': status,
+            'severity': severity,
+            'message': message,
+            'normal_range': thresholds.get('normal'),
+            'critical_threshold': thresholds.get('critical')
         }
 
-    def _get_constant(self, key: str, default: Any) -> Any:
-        """Safe constant access with fallback"""
-        try:
-            # Replace with actual constant access if available
-            return ENGINE_FAILURE_DEFAULTS.get(key, default)
-        except (AttributeError, KeyError):
-            return default
-    
-    def get_actions(self, telemetry: Dict[str, float]) -> List[str]:
-        """Get current emergency checklist based on flight state"""
-        self._update_stage(telemetry)
-        return self.stages[self._current_stage].actions
-    
-    def _update_stage(self, telemetry: Dict[str, float]):
-        """Transition between protocol stages based on conditions"""
-        # Include protocol state in telemetry for condition evaluation
-        eval_telemetry = {
-            **telemetry,
-            'restart_attempts': self._restart_attempts
-        }
-        
-        # Check stage progression conditions
-        if self._current_stage == EngineFailureStage.IMMEDIATE_ACTIONS:
-            if self._check_conditions(
-                self.stages[EngineFailureStage.RESTART_ATTEMPT].conditions,
-                eval_telemetry
-            ):
-                self._current_stage = EngineFailureStage.RESTART_ATTEMPT
-                
-        elif self._current_stage == EngineFailureStage.RESTART_ATTEMPT:
-            if self._check_conditions(
-                self.stages[EngineFailureStage.FORCED_LANDING_PREP].conditions,
-                eval_telemetry
-            ):
-                self._current_stage = EngineFailureStage.FORCED_LANDING_PREP
-                
-        elif self._current_stage == EngineFailureStage.FORCED_LANDING_PREP:
-            if self._check_conditions(
-                self.stages[EngineFailureStage.FINAL_APPROACH].conditions,
-                eval_telemetry
-            ):
-                self._current_stage = EngineFailureStage.FINAL_APPROACH
-    
-    def _check_conditions(self,
-                         conditions: Dict[str, Tuple[float, float]],
-                         telemetry: Dict[str, float]) -> bool:
-        """Verify if all conditions are satisfied"""
-        for param, (min_val, max_val) in conditions.items():
-            value = telemetry.get(param)
-            if value is None:
-                return False
-            if not (min_val <= value <= max_val):
-                return False
-        return True
-    
-    def record_restart_attempt(self):
-        """Log restart attempt and advance counter"""
-        if self._restart_attempts < self._max_restart_attempts:
-            self._restart_attempts += 1
-    
-    def reset(self):
-        """Reset protocol state between flights"""
-        self._restart_attempts = 0
-        self._current_stage = EngineFailureStage.IMMEDIATE_ACTIONS
+# Singleton instance
+ENGINE_FAILURE_DETECTOR = EngineFailureDetector()
 
-    def get_stage_name(self, telemetry: Dict[str, float]) -> str:
-        """Get human-readable stage name"""
-        self._update_stage(telemetry)
-        return self.stages[self._current_stage].name
-
-# Singleton instance for system-wide use
-ENGINE_FAILURE_PROTOCOL = EngineFailureProtocol()
-
-def get_current_stage(telemetry: Dict[str, float]) -> str:
-    """Get current stage name for monitoring systems"""
-    return ENGINE_FAILURE_PROTOCOL.get_stage_name(telemetry)
-
-def get_restart_attempts() -> int:
-    """Get current restart attempt count"""
-    return ENGINE_FAILURE_PROTOCOL._restart_attempts
-
-def reset_protocol():
-    """Reset protocol state (for simulation/testing)"""
-    ENGINE_FAILURE_PROTOCOL.reset()
+def detect_engine_failure(telemetry: Dict[str, float]) -> EngineDiagnostic:
+    """Detect engine failure with detailed diagnostics"""
+    return ENGINE_FAILURE_DETECTOR.detect(telemetry)

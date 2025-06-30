@@ -6,22 +6,10 @@ Handles wing damage, control surface failures, and structural integrity emergenc
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Any
-import sys
-from pathlib import Path
-
-# Add project root to Python path
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-sys.path.append(str(PROJECT_ROOT))
 
 # Relative imports within shallnotcrash package
-from shallnotcrash.constants.flightgear import FGProps
-from shallnotcrash.emergency.constants import EmergencySeverity, EngineThresholds, AerodynamicThresholds
-
-# Default values for structural failure procedures
-STRUCTURAL_FAILURE_DEFAULTS = {
-    'MIN_LANDING_ALT': 500,  # ft AGL
-    'MIN_SAFE_AIRSPEED': 80  # kt
-}
+from ...constants.flightgear import FGProps
+from ..constants import EmergencySeverity, EngineThresholds, AerodynamicThresholds, StructuralFailureThresholds
 
 class StructuralFailureStage(Enum):
     PRIMARY_CONTROL_LOSS = auto()
@@ -36,21 +24,14 @@ class ProtocolStage:
     severity: EmergencySeverity
 
 class StructuralFailureProtocol:
-    """Stateful structural failure emergency protocol"""
+    """Stateful structural failure emergency protocol using only constants"""
     def __init__(self):
         self.stages = self._build_stages()
         self._current_stage = StructuralFailureStage.PRIMARY_CONTROL_LOSS
         self._damage_contained = False
     
     def _build_stages(self) -> Dict[StructuralFailureStage, ProtocolStage]:
-        """Construct structural failure response protocol"""
-        # Get landing alt with fallback
-        min_landing_alt = getattr(
-            getattr(self, 'EMERGENCY_PROCEDURES', None), 
-            'STRUCTURAL_FAILURE', 
-            STRUCTURAL_FAILURE_DEFAULTS
-        ).get('MIN_LANDING_ALT', 500)
-        
+        """Construct structural failure response protocol using constants"""
         return {
             StructuralFailureStage.PRIMARY_CONTROL_LOSS: ProtocolStage(
                 name="Primary Control Loss",
@@ -62,8 +43,14 @@ class StructuralFailureProtocol:
                     "Trim for hands-off flight if possible"
                 ],
                 conditions={
-                    'vibration_level': (EngineThresholds.VIBRATION['CRITICAL'], 10.0),
-                    'control_effectiveness': (0, 0.5)
+                    'vibration_level': (
+                        EngineThresholds.VIBRATION['CRITICAL'],
+                        StructuralFailureThresholds.VIBRATION_MAX
+                    ),
+                    'control_effectiveness': (
+                        0,
+                        StructuralFailureThresholds.CONTROL_EFFECTIVENESS_THRESHOLD
+                    )
                 },
                 severity=EmergencySeverity.EMERGENCY
             ),
@@ -77,8 +64,14 @@ class StructuralFailureProtocol:
                     "Prepare for potential cabin depressurization"
                 ],
                 conditions={
-                    'airspeed': (0, AerodynamicThresholds.OVERSPEED['WARNING']),
-                    'structural_integrity': (0.3, 0.7)
+                    'airspeed': (
+                        0, 
+                        AerodynamicThresholds.OVERSPEED['WARNING']
+                    ),
+                    'structural_integrity': (
+                        StructuralFailureThresholds.STRUCTURAL_INTEGRITY_MIN,
+                        StructuralFailureThresholds.STRUCTURAL_INTEGRITY_MAX
+                    )
                 },
                 severity=EmergencySeverity.CRITICAL
             ),
@@ -92,8 +85,14 @@ class StructuralFailureProtocol:
                     "Brief passengers on brace position and evacuation plan"
                 ],
                 conditions={
-                    'altitude_agl': (0, min_landing_alt),
-                    'distance_to_landing': (0, 5)  # NM
+                    'altitude_agl': (
+                        0, 
+                        StructuralFailureThresholds.MIN_LANDING_ALT
+                    ),
+                    'distance_to_landing': (
+                        0, 
+                        StructuralFailureThresholds.MAX_LANDING_DISTANCE
+                    )
                 },
                 severity=EmergencySeverity.EMERGENCY
             )
@@ -125,7 +124,7 @@ class StructuralFailureProtocol:
                 self._current_stage = StructuralFailureStage.EMERGENCY_LANDING_PREPARATION
                 
     def _enrich_telemetry(self, telemetry: Dict[str, float]) -> Dict[str, float]:
-        """Calculate structural integrity metrics"""
+        """Calculate structural integrity metrics using constants"""
         # Calculate control effectiveness ratio
         telemetry['control_effectiveness'] = self._calculate_control_effectiveness(
             telemetry.get(FGProps.CONTROLS.AILERON, 0),
@@ -142,16 +141,19 @@ class StructuralFailureProtocol:
         return telemetry
     
     def _calculate_control_effectiveness(self, aileron: float, elevator: float, rudder: float) -> float:
-        """Calculate normalized control effectiveness (0-1 scale)"""
+        """Calculate normalized control effectiveness (0-1 scale) using constants"""
         # Simple heuristic: control effectiveness reduces with asymmetric inputs
         asymmetry_score = abs(aileron) + abs(elevator) + abs(rudder)
-        return max(0, min(1, 1.0 - (asymmetry_score / 3.0)))
+        return max(0, min(1, 1.0 - (asymmetry_score / 
+                                  StructuralFailureThresholds.CONTROL_ASYMMETRY_MAX)))
     
     def _estimate_structural_integrity(self, vibration: float, g_load: float) -> float:
-        """Estimate structural integrity (0-1 scale) based on stress factors"""
+        """Estimate structural integrity (0-1 scale) using constants"""
         # Simple heuristic: integrity decreases with high vibration and g-loads
-        vibration_factor = min(1, vibration / 5.0)  # 5g vibration is max
-        g_load_factor = min(1, abs(g_load - 1.0) / 2.0)  # 3g is max
+        vibration_factor = min(1, vibration / 
+                              StructuralFailureThresholds.VIBRATION_FACTOR_DIVISOR)
+        g_load_factor = min(1, abs(g_load - 1.0) / 
+                          StructuralFailureThresholds.G_LOAD_FACTOR_DIVISOR)
         return max(0, 1.0 - (vibration_factor + g_load_factor)/2.0)
     
     def _check_conditions(self,

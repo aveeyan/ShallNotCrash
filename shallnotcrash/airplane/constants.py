@@ -9,7 +9,11 @@ class C172PConstants:
         'VNE': 163,     # Never exceed
         'VNO': 129,     # Max structural cruise
         'VS0': 48,      # Stall speed (flaps down)
-        'VFE': 85       # Max flaps extended
+        'VFE': 85,       # Max flaps extended
+        'VY': 74,          # Best rate of climb (KIAS)
+        'VX': 62,          # Best angle of climb (KIAS)
+        'VR': 55,          # Rotation speed (KIAS)
+        'VREF': 60         # Final approach speed (KIAS)
     }
     
     # ===== FUEL SYSTEM ===== 
@@ -48,6 +52,27 @@ class C172PConstants:
         
         # Maintenance Intervals (hours)
         'OIL_CHANGE_INTERVAL': 50
+    }
+
+    # ===== EMERGENCY PERFORMANCE =====
+    EMERGENCY = {
+        'GLIDE_RATIO': 9,                  # 9:1 at 65 KIAS
+        'GLIDE_SPEED': 65,                 # Best glide speed (KIAS)
+        'SINK_RATE_GLIDE': 660,            # ft/min at best glide
+        'ENGINE_OUT_CLIMB_RATE': -700,     # ft/min (typical descent rate)
+        'RESTART_MIN_ALT': 1000,           # ft AGL for restart attempts
+        'PATTERN_ALTITUDE': 800,           # ft AGL for emergency landing
+        'RUNWAY_REQ': {
+            'NORMAL': 1400,                # ft at sea level
+            'SHORT_FIELD': 925             # ft at sea level
+        }
+    }
+
+    # ===== SYSTEMS =====
+    ELECTRICAL = {
+        'MIN_BUS_VOLTAGE': 22.0,          # Volts
+        'MAX_BUS_VOLTAGE': 28.5,
+        'ALTERNATOR_MIN_OUTPUT': 20       # Amps
     }
     
     # ===== REUSED CONSTANTS =====

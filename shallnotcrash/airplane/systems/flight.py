@@ -22,8 +22,8 @@ class FlightSystem:
         """Returns current flight state"""
         try:
             # Position
-            latitude = self._get('LATITUDE_DEG')
-            longitude = self._get('LONGITUDE_DEG')
+            latitude = self._get('LATITUDE')
+            longitude = self._get('LONGITUDE')
             altitude_ft = self._get('ALTITUDE_FT')
             agl_ft = self._get('ALTITUDE_AGL_FT')
             ground_elev = self._get('GROUND_ELEV_FT')

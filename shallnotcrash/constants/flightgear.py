@@ -84,6 +84,7 @@ class FGProps:
         LONGITUDE = "/position/longitude-deg"
         ALTITUDE_FT = "/position/altitude-ft"
         ALTITUDE_AGL_FT = "/position/altitude-agl-ft"
+        GROUND_ELEV_FT = "/position/ground-elev-ft"
         
         # Attitude
         PITCH_DEG = "/orientation/pitch-deg"

@@ -15,9 +15,9 @@ if not result["success"]:
     exit(1)
 
 # Read data
-latitude = fg.get(FGProps.LATITUDE_DEG)
+latitude = fg.get(FGProps.FLIGHT.LATITUDE)
 print(f"Latitude Raw:\n{latitude}")
-longitude = fg.get(FGProps.LONGITUDE_DEG)
+longitude = fg.get(FGProps.FLIGHT.LONGITUDE)
 print(f"Longitude Raw:\n{longitude}")
 
 if latitude["success"]:

@@ -1,9 +1,10 @@
 # shallnotcrash/airplane/systems/fuel.py
 
+import time
 from ..constants import C172PConstants
 
 class FuelSystem:
-    """Monitors C172P fuel state (2 tanks)"""
+    """Monitors C172P fuel state (2 tanks) with flow and endurance calculations"""
     
     def __init__(self, fg_connection):
         """
@@ -12,21 +13,52 @@ class FuelSystem:
         """
         self.fg = fg_connection
         self.const = C172PConstants
-    
+        self.last_update = time.time()
+        self.last_total_fuel = None
+        
     def update(self) -> dict:
-        """Returns current fuel state with status"""
+        """Returns current fuel state with status, flow, and endurance"""
         try:
+            # Get current fuel quantities
             left_gal = self._get_tank_quantity(tank_idx=0)
             right_gal = self._get_tank_quantity(tank_idx=1)
+            current_total = left_gal + right_gal
+            current_time = time.time()
+            
+            # Initialize fuel flow and endurance
+            fuel_flow_gph = 0.0
+            endurance_min = 0
+            
+            # Calculate fuel flow if we have previous data
+            if self.last_total_fuel is not None and current_time > self.last_update:
+                time_diff = max(0.1, current_time - self.last_update)
+                fuel_diff = self.last_total_fuel - current_total
+                fuel_flow_gph = max(0.0, (fuel_diff / time_diff) * 3600)
+                
+                # Calculate endurance only when fuel flow is positive
+                if fuel_flow_gph > 0:
+                    endurance_min = (current_total / fuel_flow_gph) * 60
+                    
+            # Update state for next calculation
+            self.last_total_fuel = current_total
+            self.last_update = current_time
             
             return {
                 'tanks': {
-                    'left': {'gallons': left_gal, 'lbs': left_gal * self.const.FUEL['DENSITY_PPG']},
-                    'right': {'gallons': right_gal, 'lbs': right_gal * self.const.FUEL['DENSITY_PPG']}
+                    'left': {
+                        'gallons': left_gal, 
+                        'lbs': left_gal * self.const.FUEL['DENSITY_PPG']
+                    },
+                    'right': {
+                        'gallons': right_gal, 
+                        'lbs': right_gal * self.const.FUEL['DENSITY_PPG']
+                    }
                 },
-                'total_gal': left_gal + right_gal,
+                'total_gal': current_total,
+                'fuel_flow': fuel_flow_gph,
+                'endurance_min': endurance_min,
                 'status': self._check_status(left_gal, right_gal),
-                'is_usable': (left_gal + right_gal) <= self.const.FUEL['USABLE_CAPACITY_GAL']
+                'is_usable': current_total <= self.const.FUEL['USABLE_CAPACITY_GAL']
             }
         except Exception as e:
             return {

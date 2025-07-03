@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# shallnotcrash/examples/E040_emergency_fuel_emergency.py
+# shallnotcrash/examples/E041_emergency_fuel_emergency.py
 
 import time
 from pathlib import Path
@@ -8,9 +8,19 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from shallnotcrash.fg_interface import FGConnection
-from shallnotcrash.airplane.systems.fuel import FuelSystem
-from shallnotcrash.emergency.protocols.fuel_emergency import FUEL_EMERGENCY_PROTOCOL
+from shallnotcrash.emergency.protocols import detect_fuel_emergency
 from shallnotcrash.airplane.constants import C172PConstants
+from shallnotcrash.constants.flightgear import FGProps
+
+def safe_get(fg_conn, property_path, default=0.0):
+    """Safely get property value with error handling"""
+    try:
+        response = fg_conn.get(property_path)
+        if response['success'] and 'data' in response and 'value' in response['data']:
+            return response['data']['value']
+        return default
+    except (KeyError, TypeError):
+        return default
 
 def main():
     print("Connecting to FlightGear...")
@@ -21,49 +31,60 @@ def main():
         print(f"Connection failed: {conn_result['message']}")
         return
 
-    fuel_monitor = FuelSystem(fg)
-    print("Monitoring fuel system parameters. Press Ctrl+C to stop...")
-    print(f"Fuel density: {C172PConstants.FUEL['DENSITY_PPG']} lbs/gal")
+    print("Monitoring fuel system. Press Ctrl+C to stop...")
+    print(f"Useable fuel capacity: {C172PConstants.FUEL['USABLE_CAPACITY_GAL']} gal")
+    print(f"Critical threshold: {C172PConstants.FUEL['CRITICAL_THRESHOLD_GAL']} gal")
 
     try:
         while True:
-            # Get processed fuel system status
-            fuel_status = fuel_monitor.update()
-            
-            # Check for errors first
-            if 'error' in fuel_status:
-                print(f"Error: {fuel_status['error']}")
-                time.sleep(2)
-                continue
-                
-            # Build telemetry in the format expected by the protocol
+            # Get fuel system telemetry
             telemetry = {
-                'fuel_left': fuel_status['tanks']['left']['gallons'],
-                'fuel_right': fuel_status['tanks']['right']['gallons'],
-                'total_fuel': fuel_status['total_gal'],
-                'fuel_flow': fuel_status.get('fuel_flow', 0.0),
-                'selector': fuel_status.get('selector', 3),
-                'pump': fuel_status.get('pump', 0)
+                'fuel_left': safe_get(fg, FGProps.FUEL.LEFT_QTY_GAL),
+                'fuel_right': safe_get(fg, FGProps.FUEL.RIGHT_QTY_GAL),
+                'fuel_flow': safe_get(fg, FGProps.ENGINE.FUEL_FLOW_GPH),
+                'selector': safe_get(fg, FGProps.FUEL.SELECTOR),
+                'pump': safe_get(fg, FGProps.FUEL.PUMP)
             }
             
+            # Calculate total fuel
+            telemetry['total_fuel'] = telemetry['fuel_left'] + telemetry['fuel_right']
+            
+            # Get diagnostic status
+            diagnostic = detect_fuel_emergency(telemetry)
+            
+            # Print telemetry
             print("\n=== FUEL SYSTEM STATUS ===")
-            # Display key parameters (match E030 format)
-            print(f"Left Tank: {telemetry['fuel_left']:.4f} gal")
-            print(f"Right Tank: {telemetry['fuel_right']:.4f} gal")
-            print(f"Total: {telemetry['total_fuel']:.1f} gal (Usable: {C172PConstants.FUEL['USABLE_CAPACITY_GAL']} gal)")
+            print(f"Left Tank: {telemetry['fuel_left']:.1f} gal")
+            print(f"Right Tank: {telemetry['fuel_right']:.1f} gal")
+            print(f"Total Fuel: {telemetry['total_fuel']:.1f} gal")
             print(f"Fuel Flow: {telemetry['fuel_flow']:.1f} GPH")
-            print(f"Status: {fuel_status.get('status', 'NORMAL')}")
-            print(f"Endurance: {fuel_status.get('endurance_min', 0):.0f} min")
-            print(f"Fuel Selector: {_selector_position(telemetry['selector'])}")
+            print(f"Selector: {_selector_position(telemetry['selector'])}")
+            print(f"Pump: {'ON' if telemetry['pump'] else 'OFF'}")
             
-            # Check for potential fuel emergency
-            checklist = FUEL_EMERGENCY_PROTOCOL.get_actions(telemetry)
-            if checklist:
-                print("\n!!! FUEL EMERGENCY PROTOCOL !!!")
-                for action in checklist:
-                    print(f"- {action}")
+            # Print diagnostics
+            print("\n=== FUEL EMERGENCY DIAGNOSTICS ===")
+            print(f"Status: {'EMERGENCY' if diagnostic.is_emergency else 'NORMAL'}")
+            print(f"Severity: {diagnostic.severity.name}")
+            print(f"Confidence: {diagnostic.confidence:.0%}")
             
-            time.sleep(2)  # Match update frequency of E030
+            print("\nDetailed Diagnostics:")
+            for param, data in diagnostic.diagnostics.items():
+                print(f"\n{param.upper()}:")
+                print(f"  Value: {data['value']}")
+                print(f"  Status: {data['status']}")
+                print(f"  Message: {data['message']}")
+                print(f"  Normal Range: {data['normal_range']}")
+                print(f"  Critical Threshold: {data['critical_threshold']}")
+            
+            if diagnostic.is_emergency:
+                print("\n!!! FUEL EMERGENCY DETECTED !!!")
+                print("Affected components:", ", ".join(diagnostic.failed_components))
+                print("Recommended actions:")
+                print("- Switch fuel selector to fullest tank")
+                print("- Turn on fuel pump immediately")
+                print("- Prepare for emergency landing")
+            
+            time.sleep(2)
 
     except KeyboardInterrupt:
         print("\nMonitoring stopped.")

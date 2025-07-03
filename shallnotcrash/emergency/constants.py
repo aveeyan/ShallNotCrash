@@ -16,50 +16,79 @@ class EmergencySeverity(Enum):
 
 # ====================== DETECTION THRESHOLDS ======================
 class EngineThresholds:
-    """Lycoming O-320-D2J emergency limits (per POH Section 3)"""
+    # ============= RPM CONSTANTS =============
+    RPM = {
+        'MIN': 800,
+        'MAX': 2700,
+        'FAILURE': 500
+    }
     
-    # Temperature Ranges (°F)
+    # ============= OIL PRESSURE CONSTANTS =============
+    OIL_PRESS = {
+        'MIN': 20,
+        'MAX': 60,
+        'CRITICAL': 15
+    }
+    
+    # ============= CHT CONSTANTS =============
     CHT = {
-        'WARNING': C172PConstants.ENGINE['MAX_CHT'] - 50,  # 450°F
-        'CRITICAL': C172PConstants.ENGINE['MAX_CHT'],       # 500°F
-        'RECOVERY_TARGET': 400  # Ideal post-emergency temp
+        'MIN': 300,
+        'MAX': 450,
+        'CRITICAL': 500,
+        'WARNING': C172PConstants.ENGINE['MAX_CHT'] - 50,
+        'RECOVERY_TARGET': 400
     }
     
-    OIL = {
-        'TEMP_WARNING': C172PConstants.ENGINE['MAX_OIL_TEMP'] - 15,  # 230°F
-        'TEMP_CRITICAL': C172PConstants.ENGINE['MAX_OIL_TEMP'],      # 245°F
-        'PRESS_IDLE_MIN': C172PConstants.ENGINE['MIN_OIL_PRESS_IDLE'],  # 10psi
-        'PRESS_RUN_MIN': C172PConstants.ENGINE['MIN_OIL_PRESS_RUNNING'] # 20psi
+    # ============= EGT CONSTANTS =============
+    EGT = {
+        'MIN': 800,
+        'MAX': 1400,
+        'CRITICAL': 1500
     }
     
-    # Fuel System
-    FUEL_FLOW = {
-        'MIN_IDLE': C172PConstants.ENGINE['MIN_FUEL_FLOW_IDLE'],  # 2.0 GPH
-        'MAX_NORMAL': C172PConstants.ENGINE['MAX_FUEL_FLOW']       # 15.0 GPH
+    # ============= OIL TEMPERATURE CONSTANTS =============
+    OIL_TEMP = {
+        'MIN': 100,
+        'MAX': 245,
+        'CRITICAL': 260,
+        'WARNING': C172PConstants.ENGINE['MAX_OIL_TEMP'] - 15,
     }
     
-    # Vibration (engine roughness)
+    # ============= VIBRATION CONSTANTS =============
     VIBRATION = {
-        'WARNING': 0.3,  # g RMS (baseline dependent)
+        'WARNING': 0.3,
         'CRITICAL': 0.5
     }
-
-    # Carburetor icing
-    CARB_ICE = {
-        'OAT_MAX_RISK': 10,    # °C
-        'HUMIDITY_MIN': 60,     # %
-        'RPM_DROP_WARNING': 150, # RPM
-        'RPM_DROP_CRITICAL': 300,
-        'RECOVERY_TIME': 90     # Seconds for expected RPM recovery
+    
+    # ============= FUEL FLOW CONSTANTS =============
+    FUEL_FLOW = {
+        'MIN_IDLE': C172PConstants.ENGINE['MIN_FUEL_FLOW_IDLE'],
+        'MAX_NORMAL': C172PConstants.ENGINE['MAX_FUEL_FLOW']
     }
     
-    # Restart parameters
+    # ============= CARBURETOR ICING CONSTANTS =============
+    CARB_ICE = {
+        'OAT_MAX_RISK': 10,
+        'HUMIDITY_MIN': 60,
+        'RPM_DROP_WARNING': 150,
+        'RPM_DROP_CRITICAL': 300,
+        'RECOVERY_TIME': 90
+    }
+    
+    # ============= RESTART CONSTANTS =============
     RESTART = {
         'MIN_ALTITUDE': C172PConstants.EMERGENCY['RESTART_MIN_ALT'],
         'MAX_ATTEMPTS': 3,
-        'ATTEMPT_INTERVAL': 30  # Seconds between attempts
+        'ATTEMPT_INTERVAL': 30
     }
-
+    
+    # ============= OIL SYSTEM CONSTANTS =============
+    OIL = {
+        'TEMP_WARNING': C172PConstants.ENGINE['MAX_OIL_TEMP'] - 15,
+        'TEMP_CRITICAL': C172PConstants.ENGINE['MAX_OIL_TEMP'],
+        'PRESS_IDLE_MIN': C172PConstants.ENGINE['MIN_OIL_PRESS_IDLE'],
+        'PRESS_RUN_MIN': C172PConstants.ENGINE['MIN_OIL_PRESS_RUNNING']
+    }
 
 class FuelThresholds:
     """Fuel quantity and balance limits (per POH Section 7)"""
@@ -149,3 +178,27 @@ class EmergencyProcedures:
         'THROTTLE_CYCLE_INTERVAL': 15,      # Seconds
         'MIN_ENDURANCE_WARNING': 30         # Minutes
     }
+
+class StructuralFailureThresholds:
+    """Thresholds for structural failure detection and response"""
+    # Control system parameters
+    CONTROL_ASYMMETRY_MAX = 3.0
+    CONTROL_EFFECTIVENESS_THRESHOLD = 0.5
+    
+    # Structural integrity parameters
+    VIBRATION_FACTOR_DIVISOR = 5.0
+    G_LOAD_FACTOR_DIVISOR = 2.0
+    STRUCTURAL_INTEGRITY_MIN = 0.3
+    STRUCTURAL_INTEGRITY_MAX = 0.7
+    
+    # Landing parameters
+    MIN_LANDING_ALT = 500    # ft AGL
+    MAX_LANDING_DISTANCE = 5  # NM
+    
+    # Vibration limits
+    VIBRATION_MAX = 10.0  # Maximum detectable vibration
+    VIBRATION_WARNING = VIBRATION_MAX * 0.6
+    VIBRATION_CRITICAL = VIBRATION_MAX * 0.8
+    CONTROL_ASYMMETRY_WARNING = CONTROL_ASYMMETRY_MAX * 0.5
+    G_LOAD_WARNING = G_LOAD_FACTOR_DIVISOR * 0.7
+

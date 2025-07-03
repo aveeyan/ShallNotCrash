@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# shallnotcrash/examples/E040_emergency_engine_failure.py
+# shallnotcrash/examples/E040_engine_failure_detection.py
 
 import time
 from pathlib import Path
@@ -8,9 +8,18 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from shallnotcrash.fg_interface import FGConnection
-from shallnotcrash.airplane.systems.engine import EngineSystem
-from shallnotcrash.emergency.protocols.engine_failure import ENGINE_FAILURE_PROTOCOL
+from shallnotcrash.emergency.protocols import detect_engine_failure
 from shallnotcrash.constants.flightgear import FGProps
+
+def safe_get(fg_conn, property_path, default=0.0):
+    """Safely get property value with error handling"""
+    try:
+        response = fg_conn.get(property_path)
+        if response['success'] and 'data' in response and 'value' in response['data']:
+            return response['data']['value']
+        return default
+    except KeyError:
+        return default
 
 def main():
     print("Connecting to FlightGear...")
@@ -21,39 +30,43 @@ def main():
         print(f"Connection failed: {conn_result['message']}")
         return
 
-    engine_monitor = EngineSystem(fg)
-    print("Monitoring engine parameters. Press Ctrl+C to stop...")
+    print("Monitoring engine health. Press Ctrl+C to stop...")
 
     try:
         while True:
-            # Get individual telemetry values
+            # Get engine telemetry values with safe access
             telemetry = {
-                FGProps.ENGINE.RPM: fg.get(FGProps.ENGINE.RPM)['data']['value'],
-                FGProps.ENGINE.CHT_F: fg.get(FGProps.ENGINE.CHT_F)['data']['value'],
-                FGProps.ENGINE.OIL_PRESS_PSI: fg.get(FGProps.ENGINE.OIL_PRESS_PSI)['data']['value'],
-                FGProps.ENGINE.OIL_TEMP_F: fg.get(FGProps.ENGINE.OIL_TEMP_F)['data']['value'],
-                FGProps.ENGINE.FUEL_FLOW_GPH: fg.get(FGProps.ENGINE.FUEL_FLOW_GPH)['data']['value'],
-                FGProps.ENGINE.EGT_F: fg.get(FGProps.ENGINE.EGT_F)['data']['value']
+                'rpm': safe_get(fg, FGProps.ENGINE.RPM),
+                'cht': safe_get(fg, FGProps.ENGINE.CHT_F),
+                'oil_press': safe_get(fg, FGProps.ENGINE.OIL_PRESS_PSI),
+                'oil_temp': safe_get(fg, FGProps.ENGINE.OIL_TEMP_F),
+                'fuel_flow': safe_get(fg, FGProps.ENGINE.FUEL_FLOW_GPH),
+                'egt': safe_get(fg, FGProps.ENGINE.EGT_F),
             }
+            print(telemetry)
             
-            # Get engine status from system
-            engine_status = engine_monitor.update()
+            # Get diagnostic status
+            diagnostic = detect_engine_failure(telemetry)
             
-            print("\n=== ENGINE STATUS ===")
-            # Display key parameters
-            print(f"RPM: {engine_status['rpm']:.0f}")
-            print(f"CHT: {engine_status['cht']:.0f}°F")
-            print(f"Oil Temp: {engine_status['oil_temp']:.0f}°F")
-            print(f"Oil Pressure: {engine_status['oil_pressure']:.1f} psi")
-            print(f"Fuel Flow: {engine_status['fuel_flow']:.1f} GPH")
-            print(f"EGT: {engine_status['egt']:.0f}°F")
+            print("\n=== ENGINE DIAGNOSTICS ===")
+            print(f"Status: {'FAILURE' if diagnostic.is_failure else 'NORMAL'}")
+            print(f"Severity: {diagnostic.severity.name}")
+            print(f"Confidence: {diagnostic.confidence:.0%}")
             
-            # Check for potential engine failure
-            checklist = ENGINE_FAILURE_PROTOCOL.get_actions(telemetry)
-            if checklist:
-                print("\n!!! POSSIBLE ENGINE FAILURE PROTOCOL !!!")
-                for action in checklist:
-                    print(f"- {action}")
+            # # Display diagnostics for each parameter
+            # for param, data in diagnostic.diagnostics.items():
+            #     print(f"\n{param.upper()}:")
+            #     print(f"  Value: {data['value']}")
+            #     print(f"  Status: {data['status']}")
+            #     print(f"  Message: {data['message']}")
+            
+            # if diagnostic.is_failure:
+            #     print("\n!!! ENGINE FAILURE DETECTED !!!")
+            #     print("Affected components:", ", ".join(diagnostic.failed_components))
+            #     print("Recommended actions:")
+            #     print("- Reduce power immediately")
+            #     print("- Monitor parameters closely")
+            #     print("- Prepare for emergency landing")
             
             time.sleep(1)
 

@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """
-Emergency detection core for Cessna 172P
-Complete constant-driven operation with no hardcoded values
+Emergency Detection Core System
+Integrates protocol detectors with real-time correlation analysis
 """
 import time
 from typing import Dict, Any, List
 from dataclasses import dataclass
 from ..constants.flightgear import FGProps
+from .protocols import (
+    detect_engine_failure, 
+    detect_fuel_emergency,
+    detect_structural_failure,
+)
+from .utilities import (
+    analyze_system_correlations,
+    CorrelationLevel
+)
 from .constants import (
-    EmergencySeverity, EngineThresholds, FuelThresholds, AerodynamicThresholds,
-    FGEmergencyPaths, EmergencyConfig, EmergencyProcedures
+    EmergencySeverity, EmergencyConfig, EmergencyProcedures, EngineThresholds
 )
 from ..airplane.constants import C172PConstants
 
@@ -20,9 +28,11 @@ class Emergency:
     message: str
     checklist: List[str]
     timestamp: float
+    confidence: float = 0.0
     is_active: bool = True
 
 class EmergencyDetector:
+    """Integrated emergency detection system with real-time correlation"""
     def __init__(self, fg_connection):
         """
         Args:
@@ -31,7 +41,11 @@ class EmergencyDetector:
         self.fg = fg_connection
         self._last_update = 0.0
         self._active_emergencies: Dict[str, Emergency] = {}
-        self._restart_attempts = 0
+        self._system_diagnostics = {
+            'engine': None,
+            'fuel': None,
+            'structural': None
+        }
 
     def update(self) -> Dict[str, Emergency]:
         """Run all emergency checks and return active emergencies"""
@@ -42,19 +56,95 @@ class EmergencyDetector:
         telemetry = self._get_telemetry()
         self._last_update = current_time
 
-        # Phase 1: System-specific threshold checks
-        self._check_engine(telemetry)
-        self._check_fuel(telemetry)
-        self._check_aerodynamics(telemetry)
-        self._check_electrical(telemetry)
-
-        # Phase 2: Cross-system correlations
-        self._check_compound_emergencies(telemetry)
-
+        # Phase 1: System detection using protocol detectors
+        self._update_system_diagnostics(telemetry)
+        
+        # Phase 2: Cross-system correlation analysis
+        self._process_correlations()
+        
         # Phase 3: Time-based validation
         self._validate_emergencies()
 
         return {k: v for k, v in self._active_emergencies.items() if v.is_active}
+    
+    def _update_system_diagnostics(self, telemetry: Dict[str, float]):
+        """Update diagnostics from all protocol detectors"""
+        self._system_diagnostics['engine'] = detect_engine_failure(telemetry)
+        self._system_diagnostics['fuel'] = detect_fuel_emergency(telemetry)
+        self._system_diagnostics['structural'] = detect_structural_failure(telemetry)
+        
+        # Register system-specific emergencies
+        self._register_system_emergency('engine', 'ENGINE_FAILURE', "Engine failure detected")
+        self._register_system_emergency('fuel', 'FUEL_EMERGENCY', "Fuel emergency detected")
+        self._register_system_emergency('structural', 'STRUCTURAL_FAILURE', "Structural failure detected")
+
+    def _register_system_emergency(self, system: str, name: str, message: str):
+        """Register emergency for a specific system if detected"""
+        diagnostic = self._system_diagnostics[system]
+        
+        # Check if system has detected an emergency
+        if getattr(diagnostic, 'is_failure', False) or getattr(diagnostic, 'is_emergency', False):
+            self._register_emergency(
+                name,
+                Emergency(
+                    severity=diagnostic.severity,
+                    message=f"{message} (Confidence: {diagnostic.confidence:.0%})",
+                    checklist=self._generate_checklist(system),
+                    confidence=diagnostic.confidence,
+                    timestamp=time.time()
+                )
+            )
+
+    def _generate_checklist(self, system: str) -> List[str]:
+        """Generate emergency checklist for specific system"""
+        if system == 'engine':
+            return [
+                f"Pitch for {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS",
+                f"Expected descent: {C172PConstants.EMERGENCY['ENGINE_OUT_CLIMB_RATE']} ft/min",
+                f"Max restart attempts: {EngineThresholds.RESTART['MAX_ATTEMPTS']}",
+                f"Restart within {EngineThresholds.RESTART['ATTEMPT_INTERVAL']} sec intervals"
+            ]
+        elif system == 'fuel':
+            return [
+                f"Switch to fullest tank",
+                f"Fuel pump: ON",
+                f"Land within {C172PConstants.EMERGENCY['MIN_GLIDE_RANGE']} NM",
+                f"Target speed: {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS"
+            ]
+        else:  # structural
+            return [
+                "Reduce airspeed to V<sub>FE</sub>",
+                "Avoid abrupt maneuvers",
+                "Secure loose items",
+                "Prepare for emergency landing"
+            ]
+
+    def _process_correlations(self):
+        """Perform and process cross-system correlation analysis"""
+        # Get diagnostics from all systems
+        engine_diag = self._system_diagnostics['engine']
+        fuel_diag = self._system_diagnostics['fuel']
+        structural_diag = self._system_diagnostics['structural']
+        
+        # Perform correlation analysis
+        correlation_diag = analyze_system_correlations(
+            engine_diag.diagnostics,
+            fuel_diag.diagnostics,
+            structural_diag.diagnostics
+        )
+        
+        # Register if correlation indicates emergency
+        if correlation_diag.emergency_level != CorrelationLevel.NONE:
+            self._register_emergency(
+                'CROSS_SYSTEM_CORRELATION',
+                Emergency(
+                    severity=EmergencySeverity.CRITICAL,
+                    message="Critical system correlation detected",
+                    checklist=correlation_diag.recommendations,
+                    confidence=correlation_diag.confidence,
+                    timestamp=time.time()
+                )
+            )
 
     def _get_telemetry(self) -> Dict[str, Any]:
         """Fetch critical telemetry with error handling"""
@@ -66,6 +156,7 @@ class EmergencyDetector:
                 'oil_temp': self.fg.get(FGProps.ENGINE.OIL_TEMP_F)['data']['value'],
                 'oil_press': self.fg.get(FGProps.ENGINE.OIL_PRESS_PSI)['data']['value'],
                 'fuel_flow': self.fg.get(FGProps.ENGINE.FUEL_FLOW_GPH)['data']['value'],
+                'vibration': self.fg.get(FGProps.ENGINE.VIBRATION)['data']['value'],
                 
                 # Fuel system
                 'fuel_left': self.fg.get(FGProps.FUEL.LEFT_QTY_GAL)['data']['value'],
@@ -75,199 +166,35 @@ class EmergencyDetector:
                 'airspeed': self.fg.get(FGProps.FLIGHT.AIRSPEED_KT)['data']['value'],
                 'altitude': self.fg.get(FGProps.FLIGHT.ALTITUDE_FT)['data']['value'],
                 'vsi': self.fg.get(FGProps.FLIGHT.VERTICAL_SPEED_FPS)['data']['value'] * 60,
-                'glide_ratio': self._calculate_glide_ratio(),
+                'g_load': self._calculate_g_load(),
                 
-                # Environmental
-                'oat': self.fg.get(FGEmergencyPaths.OAT_C)['data']['value'],
-                'humidity': self.fg.get(FGEmergencyPaths.HUMIDITY)['data']['value'],
-                
-                # System states
-                'carb_heat': self.fg.get(FGEmergencyPaths.CARB_HEAT)['data']['value'],
-                'fuel_selector': self.fg.get(FGEmergencyPaths.FUEL_SELECTOR)['data']['value'],
-                
-                # Electrical
-                'bus_voltage': self.fg.get(FGProps.ELECTRICAL.BUS_VOLTS)['data']['value'],
-                'alternator_output': self.fg.get(FGProps.ELECTRICAL.ALTERNATOR_AMPS)['data']['value']
+                # Control surfaces
+                'aileron': self.fg.get(FGProps.CONTROLS.AILERON)['data']['value'],
+                'elevator': self.fg.get(FGProps.CONTROLS.ELEVATOR)['data']['value'],
+                'rudder': self.fg.get(FGProps.CONTROLS.RUDDER)['data']['value'],
             }
         except Exception as e:
             print(f"Telemetry error: {str(e)}")
             return {}
 
-    def _calculate_glide_ratio(self) -> float:
-        """Calculate current glide ratio based on performance"""
-        return C172PConstants.EMERGENCY['GLIDE_RATIO'] * EmergencyConfig.GLIDE_RATIO_FACTOR
-
-    def _check_engine(self, telemetry: Dict[str, Any]):
-        """Engine system checks using constants"""
-        if not telemetry:
-            return
-
-        # Engine failure
-        if telemetry['rpm'] < EngineThresholds.RESTART['MIN_RUNNING_RPM']:
-            glide_range = telemetry['altitude']/1000 * telemetry['glide_ratio']
-            checklist = [
-                f"Pitch for {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS",
-                f"Expected descent: {C172PConstants.EMERGENCY['ENGINE_OUT_CLIMB_RATE']} ft/min",
-                f"Glide ratio: {telemetry['glide_ratio']:.1f}:1",
-                f"Max attempts: {EngineThresholds.RESTART['MAX_ATTEMPTS']}"
-            ]
-            
-            if telemetry['altitude'] > EngineThresholds.RESTART['MIN_ALTITUDE']:
-                checklist.extend([
-                    f"Attempt restart within {EngineThresholds.RESTART['ATTEMPT_INTERVAL']} sec",
-                    f"Minimum restart altitude: {EngineThresholds.RESTART['MIN_ALTITUDE']} ft"
-                ])
-
-            self._register_emergency(
-                'ENGINE_FAILURE',
-                Emergency(
-                    severity=EmergencySeverity.EMERGENCY,
-                    message=(f"ENGINE FAILURE! Alt: {telemetry['altitude']:.0f}ft | "
-                            f"Glide range: {glide_range:.1f} NM"),
-                    checklist=checklist,
-                    timestamp=time.time()
-                )
-            )
-
-        # Temperature warnings
-        if telemetry['cht'] > EngineThresholds.CHT['CRITICAL']:
-            self._register_emergency(
-                'ENGINE_OVERHEAT',
-                Emergency(
-                    severity=EmergencySeverity.CRITICAL,
-                    message=f"CHT CRITICAL: {telemetry['cht']:.0f}°F (Max {EngineThresholds.CHT['CRITICAL']}°F)",
-                    checklist=[
-                        f"Reduce power below {C172PConstants.ENGINE['REDLINE_RPM']} RPM",
-                        f"Maintain >{AerodynamicThresholds.OVERSPEED['WARNING']} KIAS",
-                        "Check cowl flaps"
-                    ],
-                    timestamp=time.time()
-                )
-            )
-
-    def _check_fuel(self, telemetry: Dict[str, Any]):
-        """Fuel system checks using constants"""
-        if not telemetry:
-            return
-
-        total_fuel = telemetry['fuel_left'] + telemetry['fuel_right']
-        imbalance = abs(telemetry['fuel_left'] - telemetry['fuel_right'])
-
-        # Critical fuel state
-        if total_fuel < FuelThresholds.QTY['CRITICAL']:
-            glide_range = telemetry['altitude']/1000 * telemetry['glide_ratio']
-            self._register_emergency(
-                'FUEL_CRITICAL',
-                Emergency(
-                    severity=EmergencySeverity.EMERGENCY,
-                    message=f"FUEL EMERGENCY: {total_fuel:.1f}gal | Glide range: {glide_range:.1f}NM",
-                    checklist=[
-                        f"Land within {min(glide_range, total_fuel * FuelThresholds.NAUTICAL_MILES_PER_GAL):.1f} NM",
-                        f"Target speed: {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS",
-                        f"Pattern altitude: {C172PConstants.EMERGENCY['PATTERN_ALTITUDE']}ft"
-                    ],
-                    timestamp=time.time()
-                )
-            )
-
-        # Fuel imbalance
-        if imbalance > FuelThresholds.IMBALANCE['CRITICAL']:
-            self._register_emergency(
-                'FUEL_IMBALANCE',
-                Emergency(
-                    severity=EmergencySeverity.WARNING,
-                    message=f"Fuel imbalance: {imbalance:.1f}gal (Max {FuelThresholds.IMBALANCE['CRITICAL']}gal)",
-                    checklist=[
-                        "Fuel selector: BOTH",
-                        f"Monitor every {EmergencyProcedures.ENGINE_FAILURE['ACTION_DELAYS']['FUEL_SELECTOR_CHANGE']} sec",
-                        "Consider crossfeed if equipped"
-                    ],
-                    timestamp=time.time()
-                )
-            )
-
-    def _check_electrical(self, telemetry: Dict[str, Any]):
-        """Electrical system checks using constants"""
-        if not telemetry:
-            return
-
-        if telemetry['bus_voltage'] < C172PConstants.ELECTRICAL['MIN_BUS_VOLTAGE']:
-            self._register_emergency(
-                'ELECTRICAL_FAILURE',
-                Emergency(
-                    severity=EmergencySeverity.WARNING,
-                    message=f"ELECTRICAL FAILURE: {telemetry['bus_voltage']:.1f}V (Min {C172PConstants.ELECTRICAL['MIN_BUS_VOLTAGE']}V)",
-                    checklist=[
-                        "Alternator: CHECK",
-                        "Non-essential electronics: OFF",
-                        f"Expected battery life: {self._calculate_battery_life(telemetry):.0f} min"
-                    ],
-                    timestamp=time.time()
-                )
-            )
-
-    def _calculate_battery_life(self, telemetry: Dict[str, Any]) -> float:
-        """Estimate remaining battery time"""
-        load = C172PConstants.ELECTRICAL['TYPICAL_LOAD_A']
-        capacity = C172PConstants.ELECTRICAL['BATTERY_CAPACITY_AH']
-        return (capacity * 60) / load  # Convert Ah to minutes
-
-    def _check_aerodynamics(self, telemetry: Dict[str, Any]):
-        """Aerodynamic checks using constants"""
-        if not telemetry:
-            return
-
-        # Stall detection
-        stall_speed = C172PConstants.SPEEDS['VS0'] + AerodynamicThresholds.STALL['SPEED_BUFFER']
-        if (telemetry['airspeed'] < stall_speed and
-            telemetry['vsi'] < AerodynamicThresholds.STALL['VSI_CRITICAL']):
-            self._register_emergency(
-                'STALL',
-                Emergency(
-                    severity=EmergencySeverity.CRITICAL,
-                    message=f"STALL WARNING: {telemetry['airspeed']:.1f}kt (Min {stall_speed}kt)",
-                    checklist=[
-                        "Pitch down immediately",
-                        f"Apply full power ({C172PConstants.ENGINE['REDLINE_RPM']} RPM)",
-                        "Level wings",
-                        f"Retract flaps to 20° if >{C172PConstants.SPEEDS['VFE']}kt"
-                    ],
-                    timestamp=time.time()
-                )
-            )
-
-    def _check_compound_emergencies(self, telemetry: Dict[str, Any]):
-        """Check for compound emergencies using constants"""
-        if not telemetry:
-            return
-
-        # Carb icing
-        if (telemetry['oat'] < EngineThresholds.CARB_ICE['OAT_MAX_RISK'] and 
-            telemetry['humidity'] > EngineThresholds.CARB_ICE['HUMIDITY_MIN'] and
-            telemetry['carb_heat'] == 0):
-            self._register_emergency(
-                'CARB_ICING',
-                Emergency(
-                    severity=EmergencySeverity.WARNING,
-                    message=f"CARB ICING RISK: {telemetry['oat']:.1f}°C, {telemetry['humidity']:.0f}% RH",
-                    checklist=[
-                        "Carb heat: ON",
-                        f"Monitor RPM (expect {EngineThresholds.CARB_ICE['RPM_DROP_WARNING']} drop)",
-                        "Check EGT rise"
-                    ],
-                    timestamp=time.time()
-                )
-            )
+    def _calculate_g_load(self) -> float:
+        """Calculate approximate G-load from vertical acceleration"""
+        try:
+            accel_z = self.fg.get(FGProps.FLIGHT.ACCEL_Z)['data']['value']
+            return abs(accel_z) / 32.2 + 1.0  # Convert to Gs
+        except:
+            return 1.0  # Default to 1G if unavailable
 
     def _register_emergency(self, name: str, emergency: Emergency):
         """Manage emergency state with debouncing"""
         current_time = time.time()
-        debounce_time = EmergencyConfig.DEBOUNCE_TIME[emergency.severity]
+        debounce_time = EmergencyConfig.DEBOUNCE_TIME.get(emergency.severity, 1.0)
         
         if name in self._active_emergencies:
             if current_time - self._active_emergencies[name].timestamp > debounce_time:
                 self._active_emergencies[name] = emergency
             else:
+                # Update timestamp but keep existing emergency
                 self._active_emergencies[name].timestamp = current_time
         else:
             self._active_emergencies[name] = emergency
@@ -280,3 +207,4 @@ class EmergencyDetector:
         for name, emergency in list(self._active_emergencies.items()):
             if current_time - emergency.timestamp > min_alert_duration:
                 del self._active_emergencies[name]
+    

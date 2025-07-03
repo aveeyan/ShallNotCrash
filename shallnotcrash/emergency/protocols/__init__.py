@@ -14,9 +14,8 @@ from .fuel_emergency import (
     FUEL_EMERGENCY_DETECTOR
 )
 from .structural_failure import (
-    StructuralFailureProtocol,
-    STRUCTURAL_FAILURE_PROTOCOL,
-    get_current_stage
+    detect_structural_failure,  # Updated import
+    STRUCTURAL_FAILURE_DETECTOR  # Updated import
 )
 
 # Public API
@@ -28,10 +27,10 @@ __all__ = [
     # Diagnostic Functions
     'detect_engine_failure',
     'detect_fuel_emergency',
+    'detect_structural_failure',  # Added new function
     
-    # Protocol Instances
-    'STRUCTURAL_FAILURE_PROTOCOL',
-    
-    # Utility Functions
-    'get_current_stage'
+    # Detector Instances
+    'ENGINE_FAILURE_DETECTOR',
+    'FUEL_EMERGENCY_DETECTOR',
+    'STRUCTURAL_FAILURE_DETECTOR'  # Added new instance
 ]

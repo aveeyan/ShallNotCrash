@@ -40,19 +40,21 @@ class FGProps:
     #--------------------------
     class ENGINE:
         # Status
-        RPM = "/engines/engine[0]/rpm"
-        EGT_F = "/engines/engine[0]/egt-degf"
-        CHT_F = "/engines/engine[0]/cht-degf"
-        OIL_TEMP_F = "/engines/engine[0]/oil-temperature-degf"
-        OIL_PRESS_PSI = "/engines/engine[0]/oil-pressure-psi"
-        FUEL_FLOW_GPH = "/engines/engine[0]/fuel-flow-gph"
-        RUNNING = "/engines/engine[0]/running"
+        RPM = "/engines/engine/rpm"
+        EGT_F = "/engines/engine/egt-degf"
+        CHT_F = "/engines/engine/cht-degf"
+        OIL_TEMP_F = "/engines/engine/oil-temperature-degf"
+        OIL_PRESS_PSI = "/engines/engine/oil-pressure-psi"
+        FUEL_FLOW_GPH = "/engines/engine/fuel-flow-gph"
+        RUNNING = "/engines/engine/running"
+        ## TODO: Find property tree or alternative to vibration
+        VIBRATION = "/engines/engine/vibration"
         
         # Controls
-        THROTTLE = "/controls/engines/engine[0]/throttle"
-        MIXTURE = "/controls/engines/engine[0]/mixture"
-        CARB_HEAT = "/controls/anti-ice/engine[0]/carb-heat"  # 0=OFF, 1=ON
-        MAGNETOS = "/controls/engines/engine[0]/magnetos"  # 0=OFF, 1=R, 2=L, 3=BOTH
+        THROTTLE = "/controls/engines/engine/throttle"
+        MIXTURE = "/controls/engines/engine/mixture"
+        CARB_HEAT = "/controls/anti-ice/engine/carb-heat"  # 0=OFF, 1=ON
+        MAGNETOS = "/controls/engines/engine/magnetos"  # 0=OFF, 1=R, 2=L, 3=BOTH
 
     #--------------------------
     # FLIGHT CONTROLS
@@ -90,7 +92,24 @@ class FGProps:
         PITCH_DEG = "/orientation/pitch-deg"
         ROLL_DEG = "/orientation/roll-deg"
         HEADING_DEG = "/orientation/heading-deg"
+
+        DOWN_RELGROUND_FPS ="/velocities/down-relground-fps"
+        EAST_RELGROUND_FPS ="/velocities/east-relground-fps"
+        NORTH_RELGROUND_FPS ="/velocities/north-relground-fps"
         
+        SPEED_DOWN_FPS ="/velocities/speed-down-fps"
+        SPEED_NORTH_FPS ="/velocities/speed-north-fps"
+        SPEED_EAST_FPS ="/velocities/speed-east-fps"
+
+        EQUIVALENT_KT = "/velocities/equivalent-kt"
+        GROUNDSPEED_KT = "/velocities/groundspeed-kt"
+        GLIDESLOPE = "/velocities/glideslope"
+        MACH = "/velocities/mach"
+
+        UBODY_FPS = "/velocities/uBody-fps"
+        VBODY_FPS = "/velocities/vBody-fps"
+        WBODY_FPS = "/velocities/wBody-fps"
+
         # Motion
         AIRSPEED_KT = "/velocities/airspeed-kt"
         VERTICAL_SPEED_FPS = "/velocities/vertical-speed-fps"

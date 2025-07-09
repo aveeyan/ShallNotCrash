@@ -5,12 +5,13 @@ import time
 from pathlib import Path
 import sys
 from collections import deque
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 sys.path.append(str(Path(__file__).parent.parent))
 
 from shallnotcrash.fg_interface import FGConnection
 from shallnotcrash.airplane.core import Cessna172P
+from shallnotcrash.emergency.utilities import FlightPhase
 from shallnotcrash.emergency.utilities import (
     detect_anomalies,
     analyze_system_correlations,
@@ -27,7 +28,7 @@ VIBRATION_WARNING = 5.0
 VIBRATION_CRITICAL = 8.0
 VIBRATION_HISTORY_SIZE = 10
 UPDATE_INTERVAL = 5  # seconds
-DEFAULT_FLIGHT_PHASE = "CRUISE"  # Options: "TAKEOFF", "CLIMB", "CRUISE", "DESCENT", "LANDING"
+DEFAULT_FLIGHT_PHASE = FlightPhase.CRUISE
 
 class VibrationMonitor:
     """Tracks and analyzes engine vibration patterns"""
@@ -41,7 +42,6 @@ class VibrationMonitor:
         self.history.append(current)
         self.max_recent = max(self.history) if self.history else 0.0
         
-        # Calculate trend if we have enough data
         if len(self.history) >= 2:
             if current > self.history[-2]:
                 self.trend = 'increasing'
@@ -66,19 +66,18 @@ class VibrationMonitor:
             return 'WARNING'
         return 'NORMAL'
 
-def determine_flight_phase(telemetry: Dict[str, Any]) -> str:
+def determine_flight_phase(telemetry: Dict[str, Any]) -> FlightPhase:
     """Automatically determine current flight phase"""
     altitude = telemetry['altitude']
     vsi = telemetry['vsi']
-    airspeed = telemetry['airspeed']
     
     if altitude < 500:
-        return "TAKEOFF" if vsi > 0 else "LANDING"
+        return FlightPhase.TAKEOFF if vsi > 0 else FlightPhase.LANDING
     elif vsi > 500:
-        return "CLIMB"
+        return FlightPhase.CLIMB
     elif vsi < -500:
-        return "DESCENT"
-    return "CRUISE"
+        return FlightPhase.DESCENT
+    return FlightPhase.CRUISE
 
 def format_telemetry(aircraft_data: Dict[str, Any]) -> Dict[str, Any]:
     """Convert raw aircraft data to emergency detection format"""
@@ -103,7 +102,7 @@ def format_telemetry(aircraft_data: Dict[str, Any]) -> Dict[str, Any]:
             # Flight dynamics
             'airspeed': flight_data['speed']['airspeed_kt'],
             'altitude': flight_data['position']['altitude_ft'],
-            'vsi': flight_data['speed']['vertical_speed_fps'] * 60,  # Convert to ft/min
+            'vsi': flight_data['speed']['vertical_speed_fps'] * 60,
             'pitch': flight_data['attitude']['pitch_deg'],
             'roll': flight_data['attitude']['roll_deg'],
             'heading': flight_data['attitude']['heading_deg'],
@@ -118,6 +117,16 @@ def format_telemetry(aircraft_data: Dict[str, Any]) -> Dict[str, Any]:
     except KeyError as e:
         raise ValueError(f"Missing telemetry data: {str(e)}")
 
+def convert_diagnostic(diagnostic) -> Dict[str, Any]:
+    """Convert diagnostic object to dictionary format"""
+    if isinstance(diagnostic, dict):
+        return diagnostic
+    elif hasattr(diagnostic, '__dict__'):
+        return vars(diagnostic)
+    elif hasattr(diagnostic, 'to_dict'):
+        return diagnostic.to_dict()
+    return {'diagnostics': diagnostic}
+
 def display_status(telemetry: Dict[str, Any], vibration: Dict[str, Any]):
     """Show current system status with visual indicators"""
     print("\n=== AIRCRAFT STATUS ===")
@@ -126,7 +135,7 @@ def display_status(telemetry: Dict[str, Any], vibration: Dict[str, Any]):
     print(f"FLIGHT: {telemetry['flight_status']:12} Alt: {telemetry['altitude']:.0f} ft")
     
     print("\n=== VIBRATION MONITOR ===")
-    vib_bar = "█" * min(10, int(telemetry['vibration'])) + " " * (10 - min(10, int(telemetry['vibration'])))
+    vib_bar = "█" * min(10, int(telemetry['vibration']))
     print(f"Level: {vib_bar} {telemetry['vibration']:.1f}/10.0 ({vibration['severity']})")
     print(f"Trend: {vibration['trend'].upper():10} Max Recent: {vibration['max_recent']:.1f}")
     
@@ -139,9 +148,13 @@ def display_anomalies(anomaly_scores: Dict[str, Any]):
     """Highlight significant anomalies"""
     print("\n=== ANOMALY DETECTION ===")
     for param, score in anomaly_scores.items():
-        if score.is_anomaly or param in ['vibration', 'oil_press', 'oil_temp']:
-            color = "\x1b[31m" if score.is_anomaly else "\x1b[33m"
-            print(f"{color}{param.upper():15} Z-score: {score.z_score:5.2f} {'(ALERT)' if score.is_anomaly else ''}\x1b[0m")
+        # Check if score has normalized_score attribute (new) or z_score attribute (old)
+        score_value = getattr(score, 'normalized_score', getattr(score, 'z_score', 0))
+        is_anomaly = getattr(score, 'is_anomaly', False)
+        
+        if is_anomaly or param in ['vibration', 'oil_press', 'oil_temp']:
+            color = "\x1b[31m" if is_anomaly else "\x1b[33m"
+            print(f"{color}{param.upper():15} Score: {score_value:5.2f} {'(ALERT)' if is_anomaly else ''}\x1b[0m")
 
 def display_recommendations(vibration: Dict[str, Any], correlations: Dict[str, float]):
     """Provide actionable maintenance recommendations"""
@@ -186,9 +199,13 @@ def main():
             
             # Run diagnostics
             anomaly_scores = detect_anomalies(telemetry, flight_phase=flight_phase)
-            engine_diag = detect_engine_failure(telemetry)
-            fuel_diag = detect_fuel_emergency(telemetry)
-            structural_diag = detect_structural_failure(telemetry)
+            
+            # Convert diagnostics to dictionary format
+            engine_diag = convert_diagnostic(detect_engine_failure(telemetry))
+            fuel_diag = convert_diagnostic(detect_fuel_emergency(telemetry))
+            structural_diag = convert_diagnostic(detect_structural_failure(telemetry))
+            
+            # Analyze correlations
             correlations = analyze_system_correlations(engine_diag, fuel_diag, structural_diag).correlated_systems
             
             # Display information
@@ -206,4 +223,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

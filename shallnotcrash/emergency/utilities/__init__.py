@@ -3,20 +3,25 @@
 Emergency Detection Utilities
 Provides advanced analytical tools for emergency detection systems
 """
-from .anomaly_detector import (
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from shallnotcrash.emergency.utilities.anomaly_detector import (
     AnomalyDetector,
     AnomalyScore,
-    detect_anomalies
+    detect_anomalies,
+    FlightPhase  # Add this import
 )
 
-from .correlation_analyzer import (
+from shallnotcrash.emergency.utilities.correlation_analyzer import (
     CorrelationAnalyzer,
     CorrelationDiagnostic,
     CorrelationLevel,
     analyze_system_correlations
 )
 
-from .pattern_recognizer import (
+from shallnotcrash.emergency.utilities.pattern_recognizer import (
     PatternRecognizer,
     recognize_emergency_patterns
 )
@@ -27,6 +32,7 @@ __all__ = [
     'AnomalyDetector',
     'AnomalyScore',
     'detect_anomalies',
+    'FlightPhase',  # Add this to __all__
     
     # Correlation Analysis
     'CorrelationAnalyzer',

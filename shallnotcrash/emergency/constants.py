@@ -202,3 +202,41 @@ class StructuralFailureThresholds:
     CONTROL_ASYMMETRY_WARNING = CONTROL_ASYMMETRY_MAX * 0.5
     G_LOAD_WARNING = G_LOAD_FACTOR_DIVISOR * 0.7
 
+# Add to existing constants.py
+class DetectionParameters:
+    """Thresholds for statistical detection methods"""
+    Z_SCORE_THRESHOLDS = {
+        'engine': {
+            'base': 3.0,
+            'takeoff': 2.8,
+            'climb': 3.0,
+            'cruise': 3.2,
+            'descent': 3.0,
+            'landing': 2.5
+        },
+        'structural': {
+            'base': 2.5,
+            'all_phases': 2.8  # Structural failures are phase-independent
+        }
+    }
+    
+    CORRELATION_WINDOWS = {
+        'short_term': 30,   # 3 sec at 10Hz
+        'long_term': 300     # 30 sec at 10Hz
+    }
+
+class SystemWeights:
+    """Updated weights for correlation analysis"""
+    ENGINE = 0.45
+    FUEL = 0.30
+    STRUCTURAL = 0.25
+    
+    PARAMETERS = {
+        'rpm': 0.28,
+        'oil_pressure': 0.20,
+        'vibration': 0.18,
+        'fuel_flow': 0.15,
+        'control_asymmetry': 0.12,
+        'g_load': 0.07
+    }
+

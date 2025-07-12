@@ -2,7 +2,7 @@
 """
 Pattern Analyzer - Updated for type safety
 """
-from pr1_pattern_types import (
+from .pr1_pattern_types import (
     EmergencyPattern,
     PatternResult,
     PatternConfidence,

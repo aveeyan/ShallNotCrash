@@ -2,7 +2,7 @@
 """
 Feature Extractor - Updated for pattern types integration
 """
-from pr1_pattern_types import TelemetryData, AnomalyScore
+from .pr1_pattern_types import TelemetryData, AnomalyScore
 from typing import Union, Dict, Optional
 import numpy as np
 

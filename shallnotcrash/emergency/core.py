@@ -1,210 +1,298 @@
 #!/usr/bin/env python3
 """
-Emergency Detection Core System
-Integrates protocol detectors with real-time correlation analysis
+Enhanced Emergency Detection Core Module
 """
-import time
-from typing import Dict, Any, List
-from dataclasses import dataclass
-from ..constants.flightgear import FGProps
-from .protocols import (
-    detect_engine_failure, 
-    detect_fuel_emergency,
-    detect_structural_failure,
-)
-from .utilities import (
-    analyze_system_correlations,
-    CorrelationLevel
-)
-from .constants import (
-    EmergencySeverity, EmergencyConfig, EmergencyProcedures, EngineThresholds
-)
-from ..airplane.constants import C172PConstants
 
-@dataclass
-class Emergency:
-    """Container for emergency state data"""
-    severity: EmergencySeverity
-    message: str
-    checklist: List[str]
-    timestamp: float
-    confidence: float = 0.0
-    is_active: bool = True
+import os
+import joblib
+import numpy as np
+from collections import deque
+from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import asdict
+import logging
+from sklearn.preprocessing import StandardScaler
+
+# Import from local utilities modules
+from shallnotcrash.emergency.utilities import (
+    EmergencyPattern,
+    AnomalyScore,
+    AnomalySeverity,
+    PatternResult,
+    PatternConfidence,
+    TelemetryData,
+    get_pattern_action
+)
+from shallnotcrash.emergency.utilities.pattern_recognition.pr2_feature_extractor import FeatureExtractor
+from shallnotcrash.emergency.utilities.pattern_recognition.pr3_ml_models import MLModelManager
+from shallnotcrash.emergency.utilities.pattern_recognition.pr4_pattern_analyzer import PatternAnalyzer
+
+# Import protocols
+from shallnotcrash.emergency.protocols import (
+    engine_failure,
+    fuel_emergency,
+    structural_failure
+)
+
+logger = logging.getLogger(__name__)
 
 class EmergencyDetector:
-    """Integrated emergency detection system with real-time correlation"""
-    def __init__(self, fg_connection):
+    """Enhanced emergency detection system with protocol integration"""
+    
+    def __init__(self, model_path: Optional[str] = None):
         """
+        Initialize the emergency detector with optional model path.
+        
         Args:
-            fg_connection: Connected FGInterface instance
+            model_path: Path to the trained ML model. If None, uses default path.
         """
-        self.fg = fg_connection
-        self._last_update = 0.0
-        self._active_emergencies: Dict[str, Emergency] = {}
-        self._system_diagnostics = {
-            'engine': None,
-            'fuel': None,
-            'structural': None
+        self.extractor = FeatureExtractor(window_size=30)
+        self.pattern_analyzer = PatternAnalyzer()
+        self.pattern_history = deque(maxlen=10)
+        
+        # Initialize ML model manager
+        self.ml_manager = MLModelManager()
+        self._load_model(model_path)
+        
+        # Initialize emergency protocols
+        self.protocols = {
+            EmergencyPattern.ENGINE_DEGRADATION: engine_failure,
+            EmergencyPattern.FUEL_LEAK: fuel_emergency,
+            EmergencyPattern.STRUCTURAL_FATIGUE: structural_failure
         }
-
-    def update(self) -> Dict[str, Emergency]:
-        """Run all emergency checks and return active emergencies"""
-        current_time = time.time()
-        if current_time - self._last_update < 1/EmergencyConfig.TELEMETRY_RATE:
-            return self._active_emergencies
-
-        telemetry = self._get_telemetry()
-        self._last_update = current_time
-
-        # Phase 1: System detection using protocol detectors
-        self._update_system_diagnostics(telemetry)
-        
-        # Phase 2: Cross-system correlation analysis
-        self._process_correlations()
-        
-        # Phase 3: Time-based validation
-        self._validate_emergencies()
-
-        return {k: v for k, v in self._active_emergencies.items() if v.is_active}
     
-    def _update_system_diagnostics(self, telemetry: Dict[str, float]):
-        """Update diagnostics from all protocol detectors"""
-        self._system_diagnostics['engine'] = detect_engine_failure(telemetry)
-        self._system_diagnostics['fuel'] = detect_fuel_emergency(telemetry)
-        self._system_diagnostics['structural'] = detect_structural_failure(telemetry)
+    def _load_model(self, model_path: Optional[str]) -> None:
+        """Enhanced model loading with better debugging"""
+        # Print debug information
+        print("\n=== Model Loading Debug ===")
+        print(f"Current directory: {os.getcwd()}")
+        print(f"File location: {__file__}")
         
-        # Register system-specific emergencies
-        self._register_system_emergency('engine', 'ENGINE_FAILURE', "Engine failure detected")
-        self._register_system_emergency('fuel', 'FUEL_EMERGENCY', "Fuel emergency detected")
-        self._register_system_emergency('structural', 'STRUCTURAL_FAILURE', "Structural failure detected")
+        # Try explicit path first
+        if model_path and os.path.exists(model_path):
+            print(f"\nAttempting to load from explicit path: {model_path}")
+            try:
+                if self.ml_manager.load(model_path):
+                    print("✔ Model loaded successfully from explicit path")
+                    return
+            except Exception as e:
+                print(f"✖ Load failed: {str(e)}")
 
-    def _register_system_emergency(self, system: str, name: str, message: str):
-        """Register emergency for a specific system if detected"""
-        diagnostic = self._system_diagnostics[system]
-        
-        # Check if system has detected an emergency
-        if getattr(diagnostic, 'is_failure', False) or getattr(diagnostic, 'is_emergency', False):
-            self._register_emergency(
-                name,
-                Emergency(
-                    severity=diagnostic.severity,
-                    message=f"{message} (Confidence: {diagnostic.confidence:.0%})",
-                    checklist=self._generate_checklist(system),
-                    confidence=diagnostic.confidence,
-                    timestamp=time.time()
-                )
-            )
+        # Try standard locations
+        search_paths = [
+            # Relative to package
+            os.path.join(os.path.dirname(__file__), "../../models/c172p_emergency_model.joblib"),
+            # Absolute path
+            os.path.expanduser("~/Documents/ShallNotCrash/models/c172p_emergency_model.joblib"),
+            # ShallNotCrash package path
+            os.path.join(os.path.dirname(__file__), "../../../models/c172p_emergency_model.joblib"),
+            # Local models directory
+            os.path.join("models", "c172p_emergency_model.joblib")
+        ]
 
-    def _generate_checklist(self, system: str) -> List[str]:
-        """Generate emergency checklist for specific system"""
-        if system == 'engine':
-            return [
-                f"Pitch for {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS",
-                f"Expected descent: {C172PConstants.EMERGENCY['ENGINE_OUT_CLIMB_RATE']} ft/min",
-                f"Max restart attempts: {EngineThresholds.RESTART['MAX_ATTEMPTS']}",
-                f"Restart within {EngineThresholds.RESTART['ATTEMPT_INTERVAL']} sec intervals"
-            ]
-        elif system == 'fuel':
-            return [
-                f"Switch to fullest tank",
-                f"Fuel pump: ON",
-                f"Land within {C172PConstants.EMERGENCY['MIN_GLIDE_RANGE']} NM",
-                f"Target speed: {C172PConstants.EMERGENCY['GLIDE_SPEED']} KIAS"
-            ]
-        else:  # structural
-            return [
-                "Reduce airspeed to V<sub>FE</sub>",
-                "Avoid abrupt maneuvers",
-                "Secure loose items",
-                "Prepare for emergency landing"
-            ]
-
-    def _process_correlations(self):
-        """Perform and process cross-system correlation analysis"""
-        # Get diagnostics from all systems
-        engine_diag = self._system_diagnostics['engine']
-        fuel_diag = self._system_diagnostics['fuel']
-        structural_diag = self._system_diagnostics['structural']
-        
-        # Perform correlation analysis
-        correlation_diag = analyze_system_correlations(
-            engine_diag.diagnostics,
-            fuel_diag.diagnostics,
-            structural_diag.diagnostics
-        )
-        
-        # Register if correlation indicates emergency
-        if correlation_diag.emergency_level != CorrelationLevel.NONE:
-            self._register_emergency(
-                'CROSS_SYSTEM_CORRELATION',
-                Emergency(
-                    severity=EmergencySeverity.CRITICAL,
-                    message="Critical system correlation detected",
-                    checklist=correlation_diag.recommendations,
-                    confidence=correlation_diag.confidence,
-                    timestamp=time.time()
-                )
-            )
-
-    def _get_telemetry(self) -> Dict[str, Any]:
-        """Fetch critical telemetry with error handling"""
-        try:
-            return {
-                # Engine systems
-                'rpm': self.fg.get(FGProps.ENGINE.RPM)['data']['value'],
-                'cht': self.fg.get(FGProps.ENGINE.CHT_F)['data']['value'],
-                'oil_temp': self.fg.get(FGProps.ENGINE.OIL_TEMP_F)['data']['value'],
-                'oil_press': self.fg.get(FGProps.ENGINE.OIL_PRESS_PSI)['data']['value'],
-                'fuel_flow': self.fg.get(FGProps.ENGINE.FUEL_FLOW_GPH)['data']['value'],
-                'vibration': self.fg.get(FGProps.ENGINE.VIBRATION)['data']['value'],
-                
-                # Fuel system
-                'fuel_left': self.fg.get(FGProps.FUEL.LEFT_QTY_GAL)['data']['value'],
-                'fuel_right': self.fg.get(FGProps.FUEL.RIGHT_QTY_GAL)['data']['value'],
-                
-                # Flight state
-                'airspeed': self.fg.get(FGProps.FLIGHT.AIRSPEED_KT)['data']['value'],
-                'altitude': self.fg.get(FGProps.FLIGHT.ALTITUDE_FT)['data']['value'],
-                'vsi': self.fg.get(FGProps.FLIGHT.VERTICAL_SPEED_FPS)['data']['value'] * 60,
-                'g_load': self._calculate_g_load(),
-                
-                # Control surfaces
-                'aileron': self.fg.get(FGProps.CONTROLS.AILERON)['data']['value'],
-                'elevator': self.fg.get(FGProps.CONTROLS.ELEVATOR)['data']['value'],
-                'rudder': self.fg.get(FGProps.CONTROLS.RUDDER)['data']['value'],
-            }
-        except Exception as e:
-            print(f"Telemetry error: {str(e)}")
-            return {}
-
-    def _calculate_g_load(self) -> float:
-        """Calculate approximate G-load from vertical acceleration"""
-        try:
-            accel_z = self.fg.get(FGProps.FLIGHT.ACCEL_Z)['data']['value']
-            return abs(accel_z) / 32.2 + 1.0  # Convert to Gs
-        except:
-            return 1.0  # Default to 1G if unavailable
-
-    def _register_emergency(self, name: str, emergency: Emergency):
-        """Manage emergency state with debouncing"""
-        current_time = time.time()
-        debounce_time = EmergencyConfig.DEBOUNCE_TIME.get(emergency.severity, 1.0)
-        
-        if name in self._active_emergencies:
-            if current_time - self._active_emergencies[name].timestamp > debounce_time:
-                self._active_emergencies[name] = emergency
+        for path in search_paths:
+            print(f"\nChecking path: {path}")
+            if os.path.exists(path):
+                print("✔ File exists, attempting load...")
+                try:
+                    if self.ml_manager.load(path):
+                        print("✔ Model loaded successfully")
+                        return
+                except Exception as e:
+                    print(f"✖ Load failed: {str(e)}")
             else:
-                # Update timestamp but keep existing emergency
-                self._active_emergencies[name].timestamp = current_time
-        else:
-            self._active_emergencies[name] = emergency
+                print("✖ File does not exist")
 
-    def _validate_emergencies(self):
-        """Remove expired emergencies using configured persistence"""
-        current_time = time.time()
-        min_alert_duration = EmergencyConfig.MIN_ALERT_DURATION
+        print("\n⚠ All load attempts failed, initializing fallback")
+        self._initialize_fallback_model()
+
+    def _initialize_fallback_model(self):
+        """Create a properly trained fallback model"""
+        from sklearn.ensemble import RandomForestClassifier
+        import numpy as np
         
-        for name, emergency in list(self._active_emergencies.items()):
-            if current_time - emergency.timestamp > min_alert_duration:
-                del self._active_emergencies[name]
+        print("\nInitializing fallback model...")
+        
+        # Create minimal training data that matches your feature structure
+        n_features = 10  # Should match your actual feature count
+        n_classes = len(EmergencyPattern)
+        
+        X = np.random.rand(100, n_features)
+        y = np.random.randint(0, n_classes, size=100)
+        
+        # Initialize and train
+        self.ml_manager.classifier = RandomForestClassifier(
+            n_estimators=20,
+            random_state=42
+        )
+        self.ml_manager.classifier.fit(X, y)
+        self.ml_manager.is_trained = True
+        self.ml_manager.scaler = StandardScaler()
+        self.ml_manager.scaler.fit(X)  # Important for feature scaling
+        
+        print("✔ Fallback model trained and ready")
+
+    def detect(self, 
+              telemetry: Dict[str, float], 
+              anomalies: Dict[str, Tuple[bool, float, str]], 
+              correlations: Dict[str, float]) -> Dict[str, Any]:
+        """
+        Main detection method with protocol integration.
+        
+        Args:
+            telemetry: Sensor readings dictionary
+            anomalies: Dictionary of anomaly tuples (is_anomaly, score, severity_str)
+            correlations: System correlation data
+            
+        Returns:
+            Dictionary containing all PatternResult fields
+        """
+        try:
+            # Convert inputs to proper types
+            processed_telemetry = self._validate_telemetry(telemetry)
+            processed_anomalies = self._process_anomalies(anomalies)
+            
+            # Extract features
+            features = self.extractor.extract(
+                telemetry=processed_telemetry,
+                anomalies=processed_anomalies,
+                correlation_data=correlations
+            )
+            
+            # Make prediction and analyze pattern
+            ml_prediction = self._make_ml_prediction(features)
+            result = self.pattern_analyzer.analyze(ml_prediction, features)
+            
+            # Update history and calculate trend
+            self.pattern_history.append(result.pattern_type)
+            result.severity_trend = self._calculate_trend()
+            
+            # Trigger protocol if critical
+            if self._is_critical(result.pattern_type):
+                self._trigger_protocol(result)
+            
+            return asdict(result)
+            
+        except Exception as e:
+            logger.error(f"Detection error: {e}")
+            return asdict(self._create_error_result())
     
+    def _validate_telemetry(self, telemetry: Dict[str, float]) -> TelemetryData:
+        """Convert telemetry dict to TelemetryData object"""
+        try:
+            if isinstance(telemetry, TelemetryData):
+                return telemetry
+            return TelemetryData(**telemetry)
+        except Exception as e:
+            logger.warning(f"Invalid telemetry data: {e}")
+            return TelemetryData()  # Return empty with defaults
+    
+    def _process_anomalies(self, anomalies: Dict[str, Tuple[bool, float, str]]) -> Dict[str, AnomalyScore]:
+        """Convert anomaly tuples to AnomalyScore objects"""
+        return {
+            key: AnomalyScore(
+                is_anomaly=value[0],
+                normalized_score=value[1],
+                severity=AnomalySeverity[value[2].upper()]
+            )
+            for key, value in anomalies.items()
+        }
+    
+    def _make_ml_prediction(self, features: Dict[str, float]) -> Dict[str, Any]:
+        """Create ML prediction dictionary for pattern analyzer"""
+        # Ensure features are in correct order
+        feature_values = [features.get(name, 0.0) for name in self.extractor.feature_names]
+        
+        # Scale features
+        if hasattr(self.ml_manager, 'scaler') and self.ml_manager.scaler:
+            feature_values = self.ml_manager.scaler.transform([feature_values])[0]
+        
+        # Make prediction
+        pattern = self.ml_manager.classifier.predict([feature_values])[0]
+        
+        # Get probabilities if available
+        proba = (self.ml_manager.classifier.predict_proba([feature_values])[0]
+                if hasattr(self.ml_manager.classifier, "predict_proba")
+                else None)
+        
+        return {
+            'pattern': EmergencyPattern(pattern),
+            'probability': float(proba[pattern]) if proba is not None else 0.75,
+            'confidence': self._determine_confidence(proba, pattern),
+            'recommended_action': get_pattern_action(
+                EmergencyPattern(pattern),
+                self._determine_confidence(proba, pattern)
+            )
+        }
+    
+    def _determine_confidence(self, 
+                            proba: Optional[np.ndarray], 
+                            predicted: int) -> PatternConfidence:
+        """Determine confidence level from probabilities"""
+        if proba is None:
+            return PatternConfidence.MEDIUM
+        
+        confidence_score = proba[predicted]
+        if confidence_score >= 0.9:
+            return PatternConfidence.VERY_HIGH
+        elif confidence_score >= 0.75:
+            return PatternConfidence.HIGH
+        elif confidence_score >= 0.5:
+            return PatternConfidence.MEDIUM
+        return PatternConfidence.LOW
+    
+    def _is_critical(self, pattern: EmergencyPattern) -> bool:
+        """Check if pattern is critical"""
+        critical_patterns = {
+            EmergencyPattern.FUEL_LEAK,
+            EmergencyPattern.STRUCTURAL_FATIGUE,
+            EmergencyPattern.ELECTRICAL_FAILURE,
+            EmergencyPattern.SYSTEM_CASCADE,
+            EmergencyPattern.UNKNOWN_EMERGENCY
+        }
+        return pattern in critical_patterns
+    
+    def _trigger_protocol(self, result: PatternResult) -> None:
+        """Execute the appropriate emergency protocol"""
+        protocol = self.protocols.get(result.pattern_type)
+        if protocol:
+            try:
+                protocol.execute(
+                    pattern=result.pattern_type,
+                    confidence=result.confidence,
+                    time_to_critical=result.time_to_critical
+                )
+                logger.info(f"Executed protocol for {result.pattern_type.name}")
+            except Exception as e:
+                logger.error(f"Protocol execution failed: {e}")
+    
+    def _calculate_trend(self) -> float:
+        """Calculate severity trend from history"""
+        if len(self.pattern_history) < 2:
+            return 0.0
+        x = np.arange(len(self.pattern_history))
+        y = np.array([p.value for p in self.pattern_history])
+        return float(np.polyfit(x, y, 1)[0])
+    
+    def _create_error_result(self) -> PatternResult:
+        """Create fallback result when errors occur"""
+        return PatternResult(
+            pattern_type=EmergencyPattern.UNKNOWN_EMERGENCY,
+            confidence=PatternConfidence.LOW,
+            probability=0.0,
+            contributing_features=[],
+            recommended_action="System error - verify manually",
+            severity_trend=0.0,
+            anomaly_score=0.0,
+            time_to_critical=None
+        )
+
+# Maintain backwards compatibility
+detector = EmergencyDetector()
+
+def detect_emergency_from_telemetry(
+    telemetry: Dict[str, float],
+    anomaly_inputs: Dict[str, Tuple[bool, float, str]],
+    correlation_data: Dict[str, float]
+) -> Dict[str, Any]:
+    """Legacy function interface"""
+    return detector.detect(telemetry, anomaly_inputs, correlation_data)

@@ -6,3 +6,7 @@ joblib
 scikit-learn
 pandas
 matplotlib
+folium
+openmeteo-requests
+requests-cache
+retry-requests

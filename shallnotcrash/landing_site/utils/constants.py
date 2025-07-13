@@ -10,14 +10,18 @@ class SiteConstants:
     # Scoring weights for different site types
     SCORING_WEIGHTS = {
         'airport': 100, 'airfield': 95, 'runway': 90, 'military_airfield': 85,
-        'helipad': 80, 'grass_runway': 75, 'highway_straight': 70, 'race_track': 65,
-        'open_field_large': 60, 'golf_course_fairway': 55, 'agricultural_field': 50
+        # --- ENHANCEMENT: Added new site type for smaller strips ---
+        'airstrip': 80, 'helipad': 75, 'grass_runway': 70, 'highway_straight': 65,
+        'race_track': 60, 'open_field_large': 55, 'golf_course_fairway': 50,
+        'agricultural_field': 45
     }
     
     # Site classification mappings from OSM tags
     SITE_CLASSIFIERS = {
         'priority_aviation': {
             ('aeroway', 'runway'): 'runway', ('aeroway', 'airfield'): 'airfield',
+            # --- ENHANCEMENT: Added 'airstrip' to find smaller sites like Arnarvollur ---
+            ('aeroway', 'airstrip'): 'airstrip',
             ('aeroway', 'aerodrome'): 'airport', ('landuse', 'airport'): 'airport',
             ('military', 'airfield'): 'military_airfield', ('aeroway', 'helipad'): 'helipad'
         },
@@ -29,19 +33,12 @@ class SiteConstants:
         }
     }
     
-    # Civilian area definitions for safety analysis
-    CIVILIAN_AREAS = {
-        'high_priority': {'school', 'hospital', 'kindergarten', 'university', 'college', 'nursing_home'},
-        'residential': {'residential', 'house', 'apartments', 'housing', 'suburb', 'village'},
-        'commercial': {'commercial', 'retail', 'industrial', 'warehouse', 'factory', 'office'}
-    }
-    
-    # Obstacle definitions
+    # --- ENHANCEMENT: Refined obstacle definitions for stricter safety checks ---
     OBSTACLES = {
+        'structures': {'building', 'house', 'apartments', 'school', 'hospital', 'church', 'retail', 'commercial', 'industrial', 'tower', 'mast', 'chimney', 'silo', 'bunker', 'bridge'},
         'vegetation': {'forest', 'wood', 'trees', 'scrub'},
-        'structures': {'tower', 'mast', 'chimney', 'silo', 'building'},
-        'infrastructure': {'power_line', 'railway', 'bridge'},
-        'water': {'river', 'lake', 'reservoir', 'pond'}
+        'infrastructure': {'power_line', 'railway', 'fence', 'wall'},
+        'water': {'river', 'lake', 'reservoir', 'pond', 'stream'}
     }
     
     # Surface type bonuses for scoring

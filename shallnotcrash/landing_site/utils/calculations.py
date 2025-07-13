@@ -95,24 +95,29 @@ class OverpassQueryBuilder:
     def build_query(lat: float, lon: float, radius_km: float, timeout_sec: int) -> str:
         """
         Builds a highly efficient Overpass QL query.
-        The query now includes tags for beaches to expand the search profile.
+        The query is now enhanced to include smaller airstrips and potential obstacles.
         """
         radius_m = radius_km * 1000
         
         target_features = {
+            # --- ENHANCEMENT: Added 'airstrip' to the query ---
+            "aeroway": ["runway", "taxiway", "aerodrome", "airstrip"],
             "highway": ["motorway", "trunk", "primary", "secondary"],
-            "aeroway": ["runway", "taxiway", "aerodrome"],
-            "landuse": ["farmland", "meadow", "grass", "greenfield"],
+            "landuse": ["farmland", "meadow", "grass", "greenfield", "residential", "commercial", "industrial"],
             "leisure": ["park", "golf_course", "pitch"],
-            # --- STRATEGIC ENHANCEMENT ---
-            # Add 'natural' tags to the query to find beaches.
-            "natural": ["beach"]
+            "natural": ["beach"],
+            # --- ENHANCEMENT: Explicitly query for potential obstacles ---
+            "building": ["yes", "house", "apartments", "industrial", "school", "hospital"],
+            "power": ["line", "tower"],
+            "natural": ["tree", "scrub", "wood"]
         }
 
         query_parts = []
         for key, values in target_features.items():
             value_regex = "|".join(values)
+            # Query for both ways (lines) and areas (polygons)
             query_parts.append(f'way["{key}"~"^{value_regex}$"](around:{radius_m},{lat},{lon});')
+            query_parts.append(f'relation["{key}"~"^{value_regex}$"](around:{radius_m},{lat},{lon});')
 
         full_query = f"""
         [out:json][timeout:{timeout_sec}];

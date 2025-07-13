@@ -34,13 +34,10 @@ class LandingSiteFinder:
         fg_runways = self.runway_loader.load_runways_in_radius(lat, lon, self.config.search_radius_km)
         osm_elements = self.osm_handler.fetch_osm_data(lat, lon, self.config.search_radius_km)
 
-        # --- CRITICAL LOGIC CORRECTION ---
-        # Pre-filter the OSM elements to create a single, definitive list of civilian risks.
-        # This list will be passed to the analyzer, fixing the core strategic flaw.
-        civilian_risk_elements = self._filter_for_civilian_risks(osm_elements)
-
-        primary_sites = self._process_fg_runways(fg_runways, lat, lon, civilian_risk_elements, profile)
-        secondary_sites = self._process_osm_elements(osm_elements, lat, lon, civilian_risk_elements, profile)
+        # --- REFACTOR: All safety analysis is now handled by the analyzer. ---
+        # We pass the full list of OSM elements to each processing function.
+        primary_sites = self._process_fg_runways(fg_runways, lat, lon, osm_elements, profile)
+        secondary_sites = self._process_osm_elements(osm_elements, lat, lon, osm_elements, profile)
 
         combined_sites = self._combine_and_deduplicate(primary_sites, secondary_sites)
         sorted_sites = sorted(combined_sites, key=lambda s: s.suitability_score, reverse=True)
@@ -53,21 +50,7 @@ class LandingSiteFinder:
             search_parameters=self.config.__dict__
         )
 
-    def _filter_for_civilian_risks(self, all_elements: List[Dict]) -> List[Dict]:
-        """Filters the full OSM element list for items that pose a civilian risk."""
-        risk_elements = []
-        for element in all_elements:
-            tags = element.get('tags', {})
-            # Check if any tag in the element matches our definition of a civilian risk.
-            is_risk = any(
-                tags.get(key) in values
-                for key, values in self.analyzer.CIVILIAN_RISK_TAGS.items()
-            )
-            if is_risk:
-                risk_elements.append(element)
-        return risk_elements
-
-    def _process_osm_elements(self, elements: List[Dict], origin_lat: float, origin_lon: float, civilian_risks: List[Dict], profile: Dict) -> List[LandingSite]:
+    def _process_osm_elements(self, elements: List[Dict], origin_lat: float, origin_lon: float, all_nearby_elements: List[Dict], profile: Dict) -> List[LandingSite]:
         """Processes raw OSM data into a list of LandingSite objects."""
         sites = []
         if not elements: return sites
@@ -86,9 +69,10 @@ class LandingSiteFinder:
             site_type, surface = SiteScoring.classify_site(elem.get('tags', {}))
             if site_type == 'small_area': continue
 
-            # Pass the pre-filtered list of risks to the analyzer.
-            safety_report = self.analyzer.analyze_site(center_lat, center_lon, civilian_risks)
-            if not safety_report.is_safe: continue
+            # --- ENHANCEMENT: Pass the site polygon for internal obstacle checks ---
+            safety_report = self.analyzer.analyze_site(center_lat, center_lon, simplified_coords, all_nearby_elements)
+            if not safety_report.is_safe:
+                continue
 
             distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, center_lat, center_lon)
             score = SiteScoring.calculate_suitability(site_type, surface, length, width, safety_report.safety_score, distance)
@@ -101,7 +85,7 @@ class LandingSiteFinder:
             ))
         return sites
 
-    def _process_fg_runways(self, runways: List[FlightGearRunway], origin_lat: float, origin_lon: float, civilian_risks: List[Dict], profile: Dict) -> List[LandingSite]:
+    def _process_fg_runways(self, runways: List[FlightGearRunway], origin_lat: float, origin_lon: float, all_nearby_elements: List[Dict], profile: Dict) -> List[LandingSite]:
         """Processes FlightGear runway data into LandingSite objects."""
         sites = []
         for runway in runways:
@@ -109,15 +93,17 @@ class LandingSiteFinder:
             width_m = int(runway.width_ft * 0.3048)
             if length_m < profile['min_length_m'] or width_m < profile['min_width_m']: continue
 
-            # Pass the pre-filtered list of risks to the analyzer.
-            safety_report = self.analyzer.analyze_site(runway.lat, runway.lon, civilian_risks)
-
-            distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, runway.lat, runway.lon)
-            score = SiteScoring.calculate_suitability('runway', runway.surface.lower(), length_m, width_m, safety_report.safety_score, distance)
-
             poly_coords = CoordinateCalculations.create_polygon_for_runway(
                 runway.lat, runway.lon, length_m, width_m, runway.heading
             )
+            
+            # --- ENHANCEMENT: Pass the runway polygon for internal obstacle checks ---
+            safety_report = self.analyzer.analyze_site(runway.lat, runway.lon, poly_coords, all_nearby_elements)
+            if not safety_report.is_safe:
+                continue
+
+            distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, runway.lat, runway.lon)
+            score = SiteScoring.calculate_suitability('runway', runway.surface.lower(), length_m, width_m, safety_report.safety_score, distance)
 
             sites.append(LandingSite(
                 lat=runway.lat, lon=runway.lon, length_m=length_m, width_m=width_m,
@@ -131,9 +117,8 @@ class LandingSiteFinder:
         """Combines and de-duplicates sites, prioritizing primary runways."""
         final_sites = list(primary_sites)
         for osm_site in secondary_sites:
-            # Check if the OSM site is redundant with a higher-quality runway site.
             is_redundant = any(
-                CoordinateCalculations.distance_km(osm_site.lat, osm_site.lon, runway.lat, runway.lon) < 0.5 # 500m threshold
+                CoordinateCalculations.distance_km(osm_site.lat, osm_site.lon, runway.lat, runway.lon) < 0.5
                 for runway in primary_sites
             )
             if not is_redundant:

@@ -1,4 +1,4 @@
-# shallnotcrash/path_planner/utils/constants.py
+# shallnotcrash/landing_site/utils/constants.py
 """
 Static constants used throughout the landing site detection module.
 Includes scoring weights, site classifiers, and safety definitions.
@@ -7,21 +7,19 @@ Includes scoring weights, site classifiers, and safety definitions.
 class SiteConstants:
     """Constants used throughout the detector"""
     
-    # Scoring weights for different site types
     SCORING_WEIGHTS = {
         'airport': 100, 'airfield': 95, 'runway': 90, 'military_airfield': 85,
-        # --- ENHANCEMENT: Added new site type for smaller strips ---
-        'airstrip': 80, 'helipad': 75, 'grass_runway': 70, 'highway_straight': 65,
-        'race_track': 60, 'open_field_large': 55, 'golf_course_fairway': 50,
-        'agricultural_field': 45
+        # --- ENHANCEMENT: Added more granular types to catch all strips ---
+        'airstrip': 80, 'landing_strip': 80, 'helipad': 75, 'grass_runway': 70, 
+        'highway_straight': 65, 'race_track': 60, 'open_field_large': 55, 
+        'golf_course_fairway': 50, 'agricultural_field': 45
     }
     
-    # Site classification mappings from OSM tags
     SITE_CLASSIFIERS = {
         'priority_aviation': {
             ('aeroway', 'runway'): 'runway', ('aeroway', 'airfield'): 'airfield',
-            # --- ENHANCEMENT: Added 'airstrip' to find smaller sites like Arnarvollur ---
-            ('aeroway', 'airstrip'): 'airstrip',
+            # --- ENHANCEMENT: Expanded list to include more OSM tags for airstrips ---
+            ('aeroway', 'airstrip'): 'airstrip', ('aeroway', 'landing_strip'): 'landing_strip',
             ('aeroway', 'aerodrome'): 'airport', ('landuse', 'airport'): 'airport',
             ('military', 'airfield'): 'military_airfield', ('aeroway', 'helipad'): 'helipad'
         },

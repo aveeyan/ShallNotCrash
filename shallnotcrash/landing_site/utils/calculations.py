@@ -84,13 +84,11 @@ class SiteScoring:
         
         return max(0, min(100, int(final_score)))
 
-
 class OverpassQueryBuilder:
     """
     Constructs optimized, high-precision queries for the Overpass API
     to find all potential landing surfaces.
     """
-
     @staticmethod
     def build_query(lat: float, lon: float, radius_km: float, timeout_sec: int) -> str:
         """
@@ -100,13 +98,12 @@ class OverpassQueryBuilder:
         radius_m = radius_km * 1000
         
         target_features = {
-            # --- ENHANCEMENT: Added 'airstrip' to the query ---
-            "aeroway": ["runway", "taxiway", "aerodrome", "airstrip"],
+            # --- ENHANCEMENT: Added 'landing_strip' and other variations ---
+            "aeroway": ["runway", "taxiway", "aerodrome", "airstrip", "landing_strip"],
             "highway": ["motorway", "trunk", "primary", "secondary"],
-            "landuse": ["farmland", "meadow", "grass", "greenfield", "residential", "commercial", "industrial"],
-            "leisure": ["park", "golf_course", "pitch"],
-            "natural": ["beach"],
-            # --- ENHANCEMENT: Explicitly query for potential obstacles ---
+            "landuse": ["farmland", "meadow", "grass", "greenfield", "recreation_ground", "residential", "commercial", "industrial"],
+            "leisure": ["park", "golf_course", "pitch", "track", "stadium"],
+            "natural": ["beach", "grassland"],
             "building": ["yes", "house", "apartments", "industrial", "school", "hospital"],
             "power": ["line", "tower"],
             "natural": ["tree", "scrub", "wood"]
@@ -115,7 +112,6 @@ class OverpassQueryBuilder:
         query_parts = []
         for key, values in target_features.items():
             value_regex = "|".join(values)
-            # Query for both ways (lines) and areas (polygons)
             query_parts.append(f'way["{key}"~"^{value_regex}$"](around:{radius_m},{lat},{lon});')
             query_parts.append(f'relation["{key}"~"^{value_regex}$"](around:{radius_m},{lat},{lon});')
 

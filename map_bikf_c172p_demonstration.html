@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_4046a5cf44ec8daf0c315c267c13c336 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-groupedlayercontrol/0.6.1/leaflet.groupedlayercontrol.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-groupedlayercontrol/0.6.1/leaflet.groupedlayercontrol.min.css"/>
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_4046a5cf44ec8daf0c315c267c13c336" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_4046a5cf44ec8daf0c315c267c13c336 = L.map(
+                "map_4046a5cf44ec8daf0c315c267c13c336",
+                {
+                    center: [63.985, -22.6056],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 9,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_32e3f0e4db80129cb2f9193e93597c2a = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_32e3f0e4db80129cb2f9193e93597c2a.addTo(map_4046a5cf44ec8daf0c315c267c13c336);
+        
+    
+            var circle_762e4f92ad5bf94a586d45dac5aaec73 = L.circle(
+                [63.985, -22.6056],
+                {"bubblingMouseEvents": true, "color": "#3498db", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3498db", "fillOpacity": 0.05, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 30000, "stroke": true, "weight": 1}
+            ).addTo(map_4046a5cf44ec8daf0c315c267c13c336);
+        
+    
+            var marker_a843e9c8359f45449ad07a1a57cf808a = L.marker(
+                [63.985, -22.6056],
+                {
+}
+            ).addTo(map_4046a5cf44ec8daf0c315c267c13c336);
+        
+    
+            var icon_b6f8914a7d19c71def037811d0522115 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "plane",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_af54d939f810b2c4c8db741ca7e1568d = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_0dba2cd1f617a04edaba85893defe2cf = $(`<div id="html_0dba2cd1f617a04edaba85893defe2cf" style="width: 100.0%; height: 100.0%;">Search Origin</div>`)[0];
+                popup_af54d939f810b2c4c8db741ca7e1568d.setContent(html_0dba2cd1f617a04edaba85893defe2cf);
+            
+        
+
+        marker_a843e9c8359f45449ad07a1a57cf808a.bindPopup(popup_af54d939f810b2c4c8db741ca7e1568d)
+        ;
+
+        
+    
+    
+                marker_a843e9c8359f45449ad07a1a57cf808a.setIcon(icon_b6f8914a7d19c71def037811d0522115);
+            
+    
+            var feature_group_72f8f331cf208fd6938e20206d6b956b = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var marker_386598d842e88331cf7c6035ce7856c3 = L.marker(
+                [63.97814485, -22.6394768],
+                {
+}
+            ).addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var icon_bc87757ad03937a12644331f66f19371 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "darkgreen",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_32a964b716a98f4b1af8630787063b7d = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_54f1aff1d09f4e350713edb5ba5b8934 = $(`<div id="html_54f1aff1d09f4e350713edb5ba5b8934" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #2ecc71; padding-left: 10px;">                 <b>#1 | 91 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1470m x 386m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.82 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_32a964b716a98f4b1af8630787063b7d.setContent(html_54f1aff1d09f4e350713edb5ba5b8934);
+            
+        
+
+        marker_386598d842e88331cf7c6035ce7856c3.bindPopup(popup_32a964b716a98f4b1af8630787063b7d)
+        ;
+
+        
+    
+    
+            marker_386598d842e88331cf7c6035ce7856c3.bindTooltip(
+                `<div>
+                     <b>#1: Taxiway</b><br>Score: 91
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_386598d842e88331cf7c6035ce7856c3.setIcon(icon_bc87757ad03937a12644331f66f19371);
+            
+    
+        function geo_json_f44003dc55d33c0374de2098d8131598_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#2ecc71", "fillColor": "#2ecc71", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_f44003dc55d33c0374de2098d8131598_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_f44003dc55d33c0374de2098d8131598 = L.geoJson(null, {
+                onEachFeature: geo_json_f44003dc55d33c0374de2098d8131598_onEachFeature,
+            
+                style: geo_json_f44003dc55d33c0374de2098d8131598_styler,
+            ...{
+}
+        });
+
+        function geo_json_f44003dc55d33c0374de2098d8131598_add (data) {
+            geo_json_f44003dc55d33c0374de2098d8131598
+                .addData(data);
+        }
+            geo_json_f44003dc55d33c0374de2098d8131598_add({"features": [{"geometry": {"coordinates": [[[-22.6540171, 63.9798791], [-22.6249365, 63.9764106]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_f44003dc55d33c0374de2098d8131598.addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var marker_e744896581aacca24f3f4a44d861397c = L.marker(
+                [63.9758386, -22.6415874],
+                {
+}
+            ).addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var icon_421ee66f7f46428752bc45fb6cd186ff = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_5c5e441728092606d1cdb1e74fb1349d = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_9c8dbd2f7f8a65b1d3386eb5b7f2a5af = $(`<div id="html_9c8dbd2f7f8a65b1d3386eb5b7f2a5af" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#2 | 87 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>649m x 173m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.03 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_5c5e441728092606d1cdb1e74fb1349d.setContent(html_9c8dbd2f7f8a65b1d3386eb5b7f2a5af);
+            
+        
+
+        marker_e744896581aacca24f3f4a44d861397c.bindPopup(popup_5c5e441728092606d1cdb1e74fb1349d)
+        ;
+
+        
+    
+    
+            marker_e744896581aacca24f3f4a44d861397c.bindTooltip(
+                `<div>
+                     <b>#2: Taxiway</b><br>Score: 87
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_e744896581aacca24f3f4a44d861397c.setIcon(icon_421ee66f7f46428752bc45fb6cd186ff);
+            
+    
+        function geo_json_d1b7da096bec3fb2312ce94deaf4d757_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_d1b7da096bec3fb2312ce94deaf4d757_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_d1b7da096bec3fb2312ce94deaf4d757 = L.geoJson(null, {
+                onEachFeature: geo_json_d1b7da096bec3fb2312ce94deaf4d757_onEachFeature,
+            
+                style: geo_json_d1b7da096bec3fb2312ce94deaf4d757_styler,
+            ...{
+}
+        });
+
+        function geo_json_d1b7da096bec3fb2312ce94deaf4d757_add (data) {
+            geo_json_d1b7da096bec3fb2312ce94deaf4d757
+                .addData(data);
+        }
+            geo_json_d1b7da096bec3fb2312ce94deaf4d757_add({"features": [{"geometry": {"coordinates": [[[-22.647997, 63.97662], [-22.6351778, 63.9750572]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_d1b7da096bec3fb2312ce94deaf4d757.addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var marker_311044373a2cdc0db60a702bea0975c7 = L.marker(
+                [63.97549541428572, -22.665845985714288],
+                {
+}
+            ).addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var icon_1802eb9c7540557bb743c275d4d0117e = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_04d706546e80e6c452b1597c67873da3 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_a096ba35f24d4e7107c717aedc54f685 = $(`<div id="html_a096ba35f24d4e7107c717aedc54f685" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#3 | 85 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>488m x 258m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>3.12 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_04d706546e80e6c452b1597c67873da3.setContent(html_a096ba35f24d4e7107c717aedc54f685);
+            
+        
+
+        marker_311044373a2cdc0db60a702bea0975c7.bindPopup(popup_04d706546e80e6c452b1597c67873da3)
+        ;
+
+        
+    
+    
+            marker_311044373a2cdc0db60a702bea0975c7.bindTooltip(
+                `<div>
+                     <b>#3: Taxiway</b><br>Score: 85
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_311044373a2cdc0db60a702bea0975c7.setIcon(icon_1802eb9c7540557bb743c275d4d0117e);
+            
+    
+        function geo_json_88de2e852373915b8bb6751ffc397601_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_88de2e852373915b8bb6751ffc397601_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_88de2e852373915b8bb6751ffc397601 = L.geoJson(null, {
+                onEachFeature: geo_json_88de2e852373915b8bb6751ffc397601_onEachFeature,
+            
+                style: geo_json_88de2e852373915b8bb6751ffc397601_styler,
+            ...{
+}
+        });
+
+        function geo_json_88de2e852373915b8bb6751ffc397601_add (data) {
+            geo_json_88de2e852373915b8bb6751ffc397601
+                .addData(data);
+        }
+            geo_json_88de2e852373915b8bb6751ffc397601_add({"features": [{"geometry": {"coordinates": [[[-22.6677513, 63.974997], [-22.6691998, 63.975475], [-22.6696548, 63.9754201], [-22.6698343, 63.9752314], [-22.6692665, 63.975019], [-22.6603752, 63.9750025], [-22.65484, 63.9773229]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_88de2e852373915b8bb6751ffc397601.addTo(feature_group_72f8f331cf208fd6938e20206d6b956b);
+        
+    
+            var feature_group_668f2e5f1a5893e6832beb13eb5d57e1 = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var marker_c785ce17a2237ea525665e8ea9c65672 = L.marker(
+                [63.97814485, -22.6394768],
+                {
+}
+            ).addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var icon_937a6898aecf08f8ad868a7c671bf4f1 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "darkgreen",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_682021822478b3cfdfaaa201acab3ff3 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_8e53204b1a5336d4f785e38117f9b767 = $(`<div id="html_8e53204b1a5336d4f785e38117f9b767" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #2ecc71; padding-left: 10px;">                 <b>#1 | 91 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1470m x 386m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.82 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_682021822478b3cfdfaaa201acab3ff3.setContent(html_8e53204b1a5336d4f785e38117f9b767);
+            
+        
+
+        marker_c785ce17a2237ea525665e8ea9c65672.bindPopup(popup_682021822478b3cfdfaaa201acab3ff3)
+        ;
+
+        
+    
+    
+            marker_c785ce17a2237ea525665e8ea9c65672.bindTooltip(
+                `<div>
+                     <b>#1: Taxiway</b><br>Score: 91
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_c785ce17a2237ea525665e8ea9c65672.setIcon(icon_937a6898aecf08f8ad868a7c671bf4f1);
+            
+    
+        function geo_json_5acb3ebedb27c24e1e9b1318cb297c66_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#2ecc71", "fillColor": "#2ecc71", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_5acb3ebedb27c24e1e9b1318cb297c66_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_5acb3ebedb27c24e1e9b1318cb297c66 = L.geoJson(null, {
+                onEachFeature: geo_json_5acb3ebedb27c24e1e9b1318cb297c66_onEachFeature,
+            
+                style: geo_json_5acb3ebedb27c24e1e9b1318cb297c66_styler,
+            ...{
+}
+        });
+
+        function geo_json_5acb3ebedb27c24e1e9b1318cb297c66_add (data) {
+            geo_json_5acb3ebedb27c24e1e9b1318cb297c66
+                .addData(data);
+        }
+            geo_json_5acb3ebedb27c24e1e9b1318cb297c66_add({"features": [{"geometry": {"coordinates": [[[-22.6540171, 63.9798791], [-22.6249365, 63.9764106]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_5acb3ebedb27c24e1e9b1318cb297c66.addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var marker_6d2f8bc13a5e6338e8982f2e2f9f835e = L.marker(
+                [63.9758386, -22.6415874],
+                {
+}
+            ).addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var icon_e626c7d4229685401c3c1d557e88b193 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_da5dd067b427c145971f6c35d8b833d8 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_c1eec2c1ea6bd28e5cc3a624b0ced711 = $(`<div id="html_c1eec2c1ea6bd28e5cc3a624b0ced711" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#2 | 87 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>649m x 173m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.03 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_da5dd067b427c145971f6c35d8b833d8.setContent(html_c1eec2c1ea6bd28e5cc3a624b0ced711);
+            
+        
+
+        marker_6d2f8bc13a5e6338e8982f2e2f9f835e.bindPopup(popup_da5dd067b427c145971f6c35d8b833d8)
+        ;
+
+        
+    
+    
+            marker_6d2f8bc13a5e6338e8982f2e2f9f835e.bindTooltip(
+                `<div>
+                     <b>#2: Taxiway</b><br>Score: 87
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_6d2f8bc13a5e6338e8982f2e2f9f835e.setIcon(icon_e626c7d4229685401c3c1d557e88b193);
+            
+    
+        function geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_2b4c5ce9d8f77e984c861bb4d9b518de = L.geoJson(null, {
+                onEachFeature: geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_onEachFeature,
+            
+                style: geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_styler,
+            ...{
+}
+        });
+
+        function geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_add (data) {
+            geo_json_2b4c5ce9d8f77e984c861bb4d9b518de
+                .addData(data);
+        }
+            geo_json_2b4c5ce9d8f77e984c861bb4d9b518de_add({"features": [{"geometry": {"coordinates": [[[-22.647997, 63.97662], [-22.6351778, 63.9750572]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_2b4c5ce9d8f77e984c861bb4d9b518de.addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var marker_5b3bbacc4de198c9c2cdd5ec37f73640 = L.marker(
+                [63.97549541428572, -22.665845985714288],
+                {
+}
+            ).addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var icon_c04787552907612a6cbb7e1f4fa4c4f7 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_e43d3c860e808a73d3c66509bd36a42c = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_c5e3fe36968095da2b2bcc6c7838332b = $(`<div id="html_c5e3fe36968095da2b2bcc6c7838332b" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#3 | 85 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>488m x 258m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>3.12 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_e43d3c860e808a73d3c66509bd36a42c.setContent(html_c5e3fe36968095da2b2bcc6c7838332b);
+            
+        
+
+        marker_5b3bbacc4de198c9c2cdd5ec37f73640.bindPopup(popup_e43d3c860e808a73d3c66509bd36a42c)
+        ;
+
+        
+    
+    
+            marker_5b3bbacc4de198c9c2cdd5ec37f73640.bindTooltip(
+                `<div>
+                     <b>#3: Taxiway</b><br>Score: 85
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5b3bbacc4de198c9c2cdd5ec37f73640.setIcon(icon_c04787552907612a6cbb7e1f4fa4c4f7);
+            
+    
+        function geo_json_54b15d641b609c2a291a59782bf3db79_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_54b15d641b609c2a291a59782bf3db79_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_54b15d641b609c2a291a59782bf3db79 = L.geoJson(null, {
+                onEachFeature: geo_json_54b15d641b609c2a291a59782bf3db79_onEachFeature,
+            
+                style: geo_json_54b15d641b609c2a291a59782bf3db79_styler,
+            ...{
+}
+        });
+
+        function geo_json_54b15d641b609c2a291a59782bf3db79_add (data) {
+            geo_json_54b15d641b609c2a291a59782bf3db79
+                .addData(data);
+        }
+            geo_json_54b15d641b609c2a291a59782bf3db79_add({"features": [{"geometry": {"coordinates": [[[-22.6677513, 63.974997], [-22.6691998, 63.975475], [-22.6696548, 63.9754201], [-22.6698343, 63.9752314], [-22.6692665, 63.975019], [-22.6603752, 63.9750025], [-22.65484, 63.9773229]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_54b15d641b609c2a291a59782bf3db79.addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var marker_49035f81f00f31e68eb3d110cada6471 = L.marker(
+                [63.97937929, -22.66392114],
+                {
+}
+            ).addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var icon_68eb60e31ea377fc8dc62c787ec17046 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_85d34423c72c2af99983ac42dc96b024 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_942d695366f83609dee857afd575dd79 = $(`<div id="html_942d695366f83609dee857afd575dd79" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#4 | 84 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>412m x 324m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.91 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_85d34423c72c2af99983ac42dc96b024.setContent(html_942d695366f83609dee857afd575dd79);
+            
+        
+
+        marker_49035f81f00f31e68eb3d110cada6471.bindPopup(popup_85d34423c72c2af99983ac42dc96b024)
+        ;
+
+        
+    
+    
+            marker_49035f81f00f31e68eb3d110cada6471.bindTooltip(
+                `<div>
+                     <b>#4: Taxiway</b><br>Score: 84
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_49035f81f00f31e68eb3d110cada6471.setIcon(icon_68eb60e31ea377fc8dc62c787ec17046);
+            
+    
+        function geo_json_529a1b896f5f29da00604946dfea8e93_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_529a1b896f5f29da00604946dfea8e93_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_529a1b896f5f29da00604946dfea8e93 = L.geoJson(null, {
+                onEachFeature: geo_json_529a1b896f5f29da00604946dfea8e93_onEachFeature,
+            
+                style: geo_json_529a1b896f5f29da00604946dfea8e93_styler,
+            ...{
+}
+        });
+
+        function geo_json_529a1b896f5f29da00604946dfea8e93_add (data) {
+            geo_json_529a1b896f5f29da00604946dfea8e93
+                .addData(data);
+        }
+            geo_json_529a1b896f5f29da00604946dfea8e93_add({"features": [{"geometry": {"coordinates": [[[-22.6627004, 63.9809296], [-22.6651597, 63.980856], [-22.6660985, 63.9804983], [-22.6662604, 63.9802261], [-22.6663781, 63.9788326], [-22.665689, 63.978313], [-22.6642135, 63.9780156], [-22.6624509, 63.9780532], [-22.6608938, 63.9785453], [-22.6593671, 63.9795232]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_529a1b896f5f29da00604946dfea8e93.addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var marker_0a864e16a21f03588391a92f4af563e4 = L.marker(
+                [64.01910380000001, -22.6017758],
+                {
+}
+            ).addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            var icon_f2bb1663b2ecd0f862dfc804c6992571 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_a7509593da00bf8f9983b19dc1867c3b = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_ea31e7dde92c927971b6073e475edf39 = $(`<div id="html_ea31e7dde92c927971b6073e475edf39" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#5 | 84 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1086m x 331m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>3.80 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_a7509593da00bf8f9983b19dc1867c3b.setContent(html_ea31e7dde92c927971b6073e475edf39);
+            
+        
+
+        marker_0a864e16a21f03588391a92f4af563e4.bindPopup(popup_a7509593da00bf8f9983b19dc1867c3b)
+        ;
+
+        
+    
+    
+            marker_0a864e16a21f03588391a92f4af563e4.bindTooltip(
+                `<div>
+                     <b>#5: Major Road</b><br>Score: 84
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0a864e16a21f03588391a92f4af563e4.setIcon(icon_f2bb1663b2ecd0f862dfc804c6992571);
+            
+    
+        function geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_ae80cdb56d1c50cad5eb031a50dd44bd = L.geoJson(null, {
+                onEachFeature: geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_onEachFeature,
+            
+                style: geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_styler,
+            ...{
+}
+        });
+
+        function geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_add (data) {
+            geo_json_ae80cdb56d1c50cad5eb031a50dd44bd
+                .addData(data);
+        }
+            geo_json_ae80cdb56d1c50cad5eb031a50dd44bd_add({"features": [{"geometry": {"coordinates": [[[-22.6123976, 64.0205949], [-22.591154, 64.0176127]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_ae80cdb56d1c50cad5eb031a50dd44bd.addTo(feature_group_668f2e5f1a5893e6832beb13eb5d57e1);
+        
+    
+            feature_group_668f2e5f1a5893e6832beb13eb5d57e1.addTo(map_4046a5cf44ec8daf0c315c267c13c336);
+        
+    
+            var feature_group_44b6839738608f9b7d516d4a7c567f5d = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var marker_a6761666412af570af8484ba460ebf0f = L.marker(
+                [63.97814485, -22.6394768],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_67d87823307fb50a27aa0ead2d590997 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "darkgreen",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_807b8ce77a0dd7d6a38421a43a28ffcc = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_be94882b3569a610e12b7b05f2f88378 = $(`<div id="html_be94882b3569a610e12b7b05f2f88378" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #2ecc71; padding-left: 10px;">                 <b>#1 | 91 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1470m x 386m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.82 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_807b8ce77a0dd7d6a38421a43a28ffcc.setContent(html_be94882b3569a610e12b7b05f2f88378);
+            
+        
+
+        marker_a6761666412af570af8484ba460ebf0f.bindPopup(popup_807b8ce77a0dd7d6a38421a43a28ffcc)
+        ;
+
+        
+    
+    
+            marker_a6761666412af570af8484ba460ebf0f.bindTooltip(
+                `<div>
+                     <b>#1: Taxiway</b><br>Score: 91
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_a6761666412af570af8484ba460ebf0f.setIcon(icon_67d87823307fb50a27aa0ead2d590997);
+            
+    
+        function geo_json_9c802b4517865724e39dde98c8983d98_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#2ecc71", "fillColor": "#2ecc71", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_9c802b4517865724e39dde98c8983d98_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_9c802b4517865724e39dde98c8983d98 = L.geoJson(null, {
+                onEachFeature: geo_json_9c802b4517865724e39dde98c8983d98_onEachFeature,
+            
+                style: geo_json_9c802b4517865724e39dde98c8983d98_styler,
+            ...{
+}
+        });
+
+        function geo_json_9c802b4517865724e39dde98c8983d98_add (data) {
+            geo_json_9c802b4517865724e39dde98c8983d98
+                .addData(data);
+        }
+            geo_json_9c802b4517865724e39dde98c8983d98_add({"features": [{"geometry": {"coordinates": [[[-22.6540171, 63.9798791], [-22.6249365, 63.9764106]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_9c802b4517865724e39dde98c8983d98.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_1a0bea6a50215cbc51c4589ddbf5dde5 = L.marker(
+                [63.9758386, -22.6415874],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_8117d4d9082a21d8083e271dcc9dda69 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_d34ebbd67734628a35c46206eedc4027 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_dbb39667a77af3845ce9b127336b1eaa = $(`<div id="html_dbb39667a77af3845ce9b127336b1eaa" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#2 | 87 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>649m x 173m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.03 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_d34ebbd67734628a35c46206eedc4027.setContent(html_dbb39667a77af3845ce9b127336b1eaa);
+            
+        
+
+        marker_1a0bea6a50215cbc51c4589ddbf5dde5.bindPopup(popup_d34ebbd67734628a35c46206eedc4027)
+        ;
+
+        
+    
+    
+            marker_1a0bea6a50215cbc51c4589ddbf5dde5.bindTooltip(
+                `<div>
+                     <b>#2: Taxiway</b><br>Score: 87
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1a0bea6a50215cbc51c4589ddbf5dde5.setIcon(icon_8117d4d9082a21d8083e271dcc9dda69);
+            
+    
+        function geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6 = L.geoJson(null, {
+                onEachFeature: geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_onEachFeature,
+            
+                style: geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_styler,
+            ...{
+}
+        });
+
+        function geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_add (data) {
+            geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6
+                .addData(data);
+        }
+            geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6_add({"features": [{"geometry": {"coordinates": [[[-22.647997, 63.97662], [-22.6351778, 63.9750572]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_dfe8fd776647291ecdb5ad2a5ee5e1c6.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_632730df3218a309c55284dec8149572 = L.marker(
+                [63.97549541428572, -22.665845985714288],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_148c8d6d2000a2566346dc4e91bd5108 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_2301fbf60cc05f0eabe1d243bf4f9f4a = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_884f29b3d0a0367475cb1d853743f264 = $(`<div id="html_884f29b3d0a0367475cb1d853743f264" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#3 | 85 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>488m x 258m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>3.12 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_2301fbf60cc05f0eabe1d243bf4f9f4a.setContent(html_884f29b3d0a0367475cb1d853743f264);
+            
+        
+
+        marker_632730df3218a309c55284dec8149572.bindPopup(popup_2301fbf60cc05f0eabe1d243bf4f9f4a)
+        ;
+
+        
+    
+    
+            marker_632730df3218a309c55284dec8149572.bindTooltip(
+                `<div>
+                     <b>#3: Taxiway</b><br>Score: 85
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_632730df3218a309c55284dec8149572.setIcon(icon_148c8d6d2000a2566346dc4e91bd5108);
+            
+    
+        function geo_json_55f320773df9921605a504a82230b5fd_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_55f320773df9921605a504a82230b5fd_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_55f320773df9921605a504a82230b5fd = L.geoJson(null, {
+                onEachFeature: geo_json_55f320773df9921605a504a82230b5fd_onEachFeature,
+            
+                style: geo_json_55f320773df9921605a504a82230b5fd_styler,
+            ...{
+}
+        });
+
+        function geo_json_55f320773df9921605a504a82230b5fd_add (data) {
+            geo_json_55f320773df9921605a504a82230b5fd
+                .addData(data);
+        }
+            geo_json_55f320773df9921605a504a82230b5fd_add({"features": [{"geometry": {"coordinates": [[[-22.6677513, 63.974997], [-22.6691998, 63.975475], [-22.6696548, 63.9754201], [-22.6698343, 63.9752314], [-22.6692665, 63.975019], [-22.6603752, 63.9750025], [-22.65484, 63.9773229]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_55f320773df9921605a504a82230b5fd.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_644f6eacd5541ad19882762e3c50b953 = L.marker(
+                [63.97937929, -22.66392114],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_79fb61024222b865370c38aa8bf97be6 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_9496f3b876396b057eead91b7b895081 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_0c1006f2858b719f7cfd8f4f48686c05 = $(`<div id="html_0c1006f2858b719f7cfd8f4f48686c05" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#4 | 84 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>412m x 324m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.91 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_9496f3b876396b057eead91b7b895081.setContent(html_0c1006f2858b719f7cfd8f4f48686c05);
+            
+        
+
+        marker_644f6eacd5541ad19882762e3c50b953.bindPopup(popup_9496f3b876396b057eead91b7b895081)
+        ;
+
+        
+    
+    
+            marker_644f6eacd5541ad19882762e3c50b953.bindTooltip(
+                `<div>
+                     <b>#4: Taxiway</b><br>Score: 84
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_644f6eacd5541ad19882762e3c50b953.setIcon(icon_79fb61024222b865370c38aa8bf97be6);
+            
+    
+        function geo_json_c5ee56bb27982a881feff67c1257a802_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_c5ee56bb27982a881feff67c1257a802_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_c5ee56bb27982a881feff67c1257a802 = L.geoJson(null, {
+                onEachFeature: geo_json_c5ee56bb27982a881feff67c1257a802_onEachFeature,
+            
+                style: geo_json_c5ee56bb27982a881feff67c1257a802_styler,
+            ...{
+}
+        });
+
+        function geo_json_c5ee56bb27982a881feff67c1257a802_add (data) {
+            geo_json_c5ee56bb27982a881feff67c1257a802
+                .addData(data);
+        }
+            geo_json_c5ee56bb27982a881feff67c1257a802_add({"features": [{"geometry": {"coordinates": [[[-22.6627004, 63.9809296], [-22.6651597, 63.980856], [-22.6660985, 63.9804983], [-22.6662604, 63.9802261], [-22.6663781, 63.9788326], [-22.665689, 63.978313], [-22.6642135, 63.9780156], [-22.6624509, 63.9780532], [-22.6608938, 63.9785453], [-22.6593671, 63.9795232]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_c5ee56bb27982a881feff67c1257a802.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_cca77cb5e4f9742347683fe1f35ac304 = L.marker(
+                [64.01910380000001, -22.6017758],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_3d1c684296d8d5437d357e7701254234 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_53658d921517b5973dc5624cc0e2f712 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_160f5a6f4f1e25b0215e22dac3f22b0a = $(`<div id="html_160f5a6f4f1e25b0215e22dac3f22b0a" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#5 | 84 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1086m x 331m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>3.80 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_53658d921517b5973dc5624cc0e2f712.setContent(html_160f5a6f4f1e25b0215e22dac3f22b0a);
+            
+        
+
+        marker_cca77cb5e4f9742347683fe1f35ac304.bindPopup(popup_53658d921517b5973dc5624cc0e2f712)
+        ;
+
+        
+    
+    
+            marker_cca77cb5e4f9742347683fe1f35ac304.bindTooltip(
+                `<div>
+                     <b>#5: Major Road</b><br>Score: 84
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_cca77cb5e4f9742347683fe1f35ac304.setIcon(icon_3d1c684296d8d5437d357e7701254234);
+            
+    
+        function geo_json_60f01899217dca5c6592d1138f9fbdb5_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_60f01899217dca5c6592d1138f9fbdb5_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_60f01899217dca5c6592d1138f9fbdb5 = L.geoJson(null, {
+                onEachFeature: geo_json_60f01899217dca5c6592d1138f9fbdb5_onEachFeature,
+            
+                style: geo_json_60f01899217dca5c6592d1138f9fbdb5_styler,
+            ...{
+}
+        });
+
+        function geo_json_60f01899217dca5c6592d1138f9fbdb5_add (data) {
+            geo_json_60f01899217dca5c6592d1138f9fbdb5
+                .addData(data);
+        }
+            geo_json_60f01899217dca5c6592d1138f9fbdb5_add({"features": [{"geometry": {"coordinates": [[[-22.6123976, 64.0205949], [-22.591154, 64.0176127]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_60f01899217dca5c6592d1138f9fbdb5.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_7dbde1d6a4a1d22e91c346ba317a69c2 = L.marker(
+                [63.97549345, -22.6171972],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_ac51683dfe2c8cda4b0c44e1b37a3102 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_fad36719e162296f53b97f716da10d54 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_1cc41d2f310977fbd3e87ca44b24a119 = $(`<div id="html_1cc41d2f310977fbd3e87ca44b24a119" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#6 | 83 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>782m x 204m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.20 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_fad36719e162296f53b97f716da10d54.setContent(html_1cc41d2f310977fbd3e87ca44b24a119);
+            
+        
+
+        marker_7dbde1d6a4a1d22e91c346ba317a69c2.bindPopup(popup_fad36719e162296f53b97f716da10d54)
+        ;
+
+        
+    
+    
+            marker_7dbde1d6a4a1d22e91c346ba317a69c2.bindTooltip(
+                `<div>
+                     <b>#6: Taxiway</b><br>Score: 83
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_7dbde1d6a4a1d22e91c346ba317a69c2.setIcon(icon_ac51683dfe2c8cda4b0c44e1b37a3102);
+            
+    
+        function geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_1ae5cde5e129c85c719914a2cc7f5e4b = L.geoJson(null, {
+                onEachFeature: geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_onEachFeature,
+            
+                style: geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_styler,
+            ...{
+}
+        });
+
+        function geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_add (data) {
+            geo_json_1ae5cde5e129c85c719914a2cc7f5e4b
+                .addData(data);
+        }
+            geo_json_1ae5cde5e129c85c719914a2cc7f5e4b_add({"features": [{"geometry": {"coordinates": [[[-22.6249365, 63.9764106], [-22.6094579, 63.9745763]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_1ae5cde5e129c85c719914a2cc7f5e4b.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_afb5f77e9eec8460052c44295446e0c4 = L.marker(
+                [64.00971548333334, -22.608870033333332],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_763e8b2d878bfdccd050d86581b50473 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_5c420d252a76a6395fe25a15bda37a6f = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_5052eadeeca06c635f651ab6a0e645eb = $(`<div id="html_5052eadeeca06c635f651ab6a0e645eb" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #82e0aa; padding-left: 10px;">                 <b>#7 | 82 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>619m x 426m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.75 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_5c420d252a76a6395fe25a15bda37a6f.setContent(html_5052eadeeca06c635f651ab6a0e645eb);
+            
+        
+
+        marker_afb5f77e9eec8460052c44295446e0c4.bindPopup(popup_5c420d252a76a6395fe25a15bda37a6f)
+        ;
+
+        
+    
+    
+            marker_afb5f77e9eec8460052c44295446e0c4.bindTooltip(
+                `<div>
+                     <b>#7: Major Road</b><br>Score: 82
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_afb5f77e9eec8460052c44295446e0c4.setIcon(icon_763e8b2d878bfdccd050d86581b50473);
+            
+    
+        function geo_json_94266c8d4e9d5561ea67968797c429ad_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#82e0aa", "fillColor": "#82e0aa", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_94266c8d4e9d5561ea67968797c429ad_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_94266c8d4e9d5561ea67968797c429ad = L.geoJson(null, {
+                onEachFeature: geo_json_94266c8d4e9d5561ea67968797c429ad_onEachFeature,
+            
+                style: geo_json_94266c8d4e9d5561ea67968797c429ad_styler,
+            ...{
+}
+        });
+
+        function geo_json_94266c8d4e9d5561ea67968797c429ad_add (data) {
+            geo_json_94266c8d4e9d5561ea67968797c429ad
+                .addData(data);
+        }
+            geo_json_94266c8d4e9d5561ea67968797c429ad_add({"features": [{"geometry": {"coordinates": [[[-22.6127146, 64.0148269], [-22.6117501, 64.0127238], [-22.6106804, 64.0111566], [-22.6084123, 64.0087179], [-22.6056987, 64.0064521], [-22.6039641, 64.0044156]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_94266c8d4e9d5561ea67968797c429ad.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_0cee1d7b235e73f5350d840787c26eb1 = L.marker(
+                [63.973174099999994, -22.60030885],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_bd93456138a46c5d8ba8e13d0092849b = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "orange",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f21f24e8b199acd36f9fe2a79fcb0a07 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_657bd1d74ad536f8649cd763eeb2caed = $(`<div id="html_657bd1d74ad536f8649cd763eeb2caed" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #f1c40f; padding-left: 10px;">                 <b>#8 | 73 | Taxiway</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>547m x 210m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.34 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_f21f24e8b199acd36f9fe2a79fcb0a07.setContent(html_657bd1d74ad536f8649cd763eeb2caed);
+            
+        
+
+        marker_0cee1d7b235e73f5350d840787c26eb1.bindPopup(popup_f21f24e8b199acd36f9fe2a79fcb0a07)
+        ;
+
+        
+    
+    
+            marker_0cee1d7b235e73f5350d840787c26eb1.bindTooltip(
+                `<div>
+                     <b>#8: Taxiway</b><br>Score: 73
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0cee1d7b235e73f5350d840787c26eb1.setIcon(icon_bd93456138a46c5d8ba8e13d0092849b);
+            
+    
+        function geo_json_eb50661cf4f6180f1642fb85ca78237d_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#f1c40f", "fillColor": "#f1c40f", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_eb50661cf4f6180f1642fb85ca78237d_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_eb50661cf4f6180f1642fb85ca78237d = L.geoJson(null, {
+                onEachFeature: geo_json_eb50661cf4f6180f1642fb85ca78237d_onEachFeature,
+            
+                style: geo_json_eb50661cf4f6180f1642fb85ca78237d_styler,
+            ...{
+}
+        });
+
+        function geo_json_eb50661cf4f6180f1642fb85ca78237d_add (data) {
+            geo_json_eb50661cf4f6180f1642fb85ca78237d
+                .addData(data);
+        }
+            geo_json_eb50661cf4f6180f1642fb85ca78237d_add({"features": [{"geometry": {"coordinates": [[[-22.6054856, 63.9741198], [-22.5951321, 63.9722284]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_eb50661cf4f6180f1642fb85ca78237d.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_d6387ebfe7694ce49a2a1fe8f38e1573 = L.marker(
+                [63.92919989999999, -22.424404550000002],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_e9c50162d9948fbe4cafb3b036259815 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "orange",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_8000476fd5d171a049ee981f6ec7e73d = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_546d9604e35964a89d727d49efb86530 = $(`<div id="html_546d9604e35964a89d727d49efb86530" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #f1c40f; padding-left: 10px;">                 <b>#9 | 73 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1415m x 348m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>10.80 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_8000476fd5d171a049ee981f6ec7e73d.setContent(html_546d9604e35964a89d727d49efb86530);
+            
+        
+
+        marker_d6387ebfe7694ce49a2a1fe8f38e1573.bindPopup(popup_8000476fd5d171a049ee981f6ec7e73d)
+        ;
+
+        
+    
+    
+            marker_d6387ebfe7694ce49a2a1fe8f38e1573.bindTooltip(
+                `<div>
+                     <b>#9: Major Road</b><br>Score: 73
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d6387ebfe7694ce49a2a1fe8f38e1573.setIcon(icon_e9c50162d9948fbe4cafb3b036259815);
+            
+    
+        function geo_json_7f9965536c014c640abea4c0521da438_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#f1c40f", "fillColor": "#f1c40f", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_7f9965536c014c640abea4c0521da438_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_7f9965536c014c640abea4c0521da438 = L.geoJson(null, {
+                onEachFeature: geo_json_7f9965536c014c640abea4c0521da438_onEachFeature,
+            
+                style: geo_json_7f9965536c014c640abea4c0521da438_styler,
+            ...{
+}
+        });
+
+        function geo_json_7f9965536c014c640abea4c0521da438_add (data) {
+            geo_json_7f9965536c014c640abea4c0521da438
+                .addData(data);
+        }
+            geo_json_7f9965536c014c640abea4c0521da438_add({"features": [{"geometry": {"coordinates": [[[-22.4212668, 63.919252], [-22.4213019, 63.9201564], [-22.4216757, 63.9213897], [-22.4260005, 63.9299232], [-22.4277982, 63.9400217], [-22.4283842, 63.9444564]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_7f9965536c014c640abea4c0521da438.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_31c5d0328b2409769c2cdce62b1e0dd2 = L.marker(
+                [64.00108905, -22.62027553333333],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_34ebd67d4b0986106f205beac97667b4 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "orange",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_ffc232f1a151d1f8c52c910906882ee8 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_8e97f04540706f626419df72bb38a480 = $(`<div id="html_8e97f04540706f626419df72bb38a480" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #f1c40f; padding-left: 10px;">                 <b>#10 | 70 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>641m x 353m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>1.93 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_ffc232f1a151d1f8c52c910906882ee8.setContent(html_8e97f04540706f626419df72bb38a480);
+            
+        
+
+        marker_31c5d0328b2409769c2cdce62b1e0dd2.bindPopup(popup_ffc232f1a151d1f8c52c910906882ee8)
+        ;
+
+        
+    
+    
+            marker_31c5d0328b2409769c2cdce62b1e0dd2.bindTooltip(
+                `<div>
+                     <b>#10: Major Road</b><br>Score: 70
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_31c5d0328b2409769c2cdce62b1e0dd2.setIcon(icon_34ebd67d4b0986106f205beac97667b4);
+            
+    
+        function geo_json_5431b6bfea8f30b61af8e9167c60c6e8_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#f1c40f", "fillColor": "#f1c40f", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_5431b6bfea8f30b61af8e9167c60c6e8_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_5431b6bfea8f30b61af8e9167c60c6e8 = L.geoJson(null, {
+                onEachFeature: geo_json_5431b6bfea8f30b61af8e9167c60c6e8_onEachFeature,
+            
+                style: geo_json_5431b6bfea8f30b61af8e9167c60c6e8_styler,
+            ...{
+}
+        });
+
+        function geo_json_5431b6bfea8f30b61af8e9167c60c6e8_add (data) {
+            geo_json_5431b6bfea8f30b61af8e9167c60c6e8
+                .addData(data);
+        }
+            geo_json_5431b6bfea8f30b61af8e9167c60c6e8_add({"features": [{"geometry": {"coordinates": [[[-22.6038007, 64.0027485], [-22.6108391, 64.0026436], [-22.6243251, 64.0010618], [-22.626917, 64.0005106], [-22.6277462, 63.9999958], [-22.6280251, 63.999574]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_5431b6bfea8f30b61af8e9167c60c6e8.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_daeb1f7fb6131f34021639f6b9b1b242 = L.marker(
+                [64.00641415, -22.593670399999997],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_029b63ec50c7d840efd5ee8c8fd44678 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightred",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_fdf4f45e274f664de7554739c1c58601 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_5d9952e2985c2b1f8a641b983ce3cb41 = $(`<div id="html_5d9952e2985c2b1f8a641b983ce3cb41" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #e67e22; padding-left: 10px;">                 <b>#11 | 69 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>486m x 541m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>2.45 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_fdf4f45e274f664de7554739c1c58601.setContent(html_5d9952e2985c2b1f8a641b983ce3cb41);
+            
+        
+
+        marker_daeb1f7fb6131f34021639f6b9b1b242.bindPopup(popup_fdf4f45e274f664de7554739c1c58601)
+        ;
+
+        
+    
+    
+            marker_daeb1f7fb6131f34021639f6b9b1b242.bindTooltip(
+                `<div>
+                     <b>#11: Major Road</b><br>Score: 69
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_daeb1f7fb6131f34021639f6b9b1b242.setIcon(icon_029b63ec50c7d840efd5ee8c8fd44678);
+            
+    
+        function geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#e67e22", "fillColor": "#e67e22", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495 = L.geoJson(null, {
+                onEachFeature: geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_onEachFeature,
+            
+                style: geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_styler,
+            ...{
+}
+        });
+
+        function geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_add (data) {
+            geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495
+                .addData(data);
+        }
+            geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495_add({"features": [{"geometry": {"coordinates": [[[-22.5898729, 64.0099854], [-22.5907577, 64.0078431], [-22.5917068, 64.0067614], [-22.5929533, 64.005901], [-22.5957627, 64.004677], [-22.600969, 64.003317]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_42c0b28a5f8bdbe7c0cf45bd4b35d495.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_2d202001a7d371e07f517e51a1a4e900 = L.marker(
+                [64.027564025, -22.665929075],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_5b753f49975b8440258dba21104fa965 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightred",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f3b5c2fd3cd4edfea4e2a8fa9cebe3f2 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_9623a486234365343a98c66f4c1afeb2 = $(`<div id="html_9623a486234365343a98c66f4c1afeb2" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #e67e22; padding-left: 10px;">                 <b>#12 | 69 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1358m x 753m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>5.57 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_f3b5c2fd3cd4edfea4e2a8fa9cebe3f2.setContent(html_9623a486234365343a98c66f4c1afeb2);
+            
+        
+
+        marker_2d202001a7d371e07f517e51a1a4e900.bindPopup(popup_f3b5c2fd3cd4edfea4e2a8fa9cebe3f2)
+        ;
+
+        
+    
+    
+            marker_2d202001a7d371e07f517e51a1a4e900.bindTooltip(
+                `<div>
+                     <b>#12: Major Road</b><br>Score: 69
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_2d202001a7d371e07f517e51a1a4e900.setIcon(icon_5b753f49975b8440258dba21104fa965);
+            
+    
+        function geo_json_3a6d6d27875321d73dc96400f9fa41c8_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#e67e22", "fillColor": "#e67e22", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_3a6d6d27875321d73dc96400f9fa41c8_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_3a6d6d27875321d73dc96400f9fa41c8 = L.geoJson(null, {
+                onEachFeature: geo_json_3a6d6d27875321d73dc96400f9fa41c8_onEachFeature,
+            
+                style: geo_json_3a6d6d27875321d73dc96400f9fa41c8_styler,
+            ...{
+}
+        });
+
+        function geo_json_3a6d6d27875321d73dc96400f9fa41c8_add (data) {
+            geo_json_3a6d6d27875321d73dc96400f9fa41c8
+                .addData(data);
+        }
+            geo_json_3a6d6d27875321d73dc96400f9fa41c8_add({"features": [{"geometry": {"coordinates": [[[-22.6846965, 64.0299136], [-22.6792011, 64.0289604], [-22.6685991, 64.0282373], [-22.6312196, 64.0231448]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_3a6d6d27875321d73dc96400f9fa41c8.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_0e30c51b7d660a44519639ae26fd5fb8 = L.marker(
+                [64.0428474625, -22.60487115],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_4006675f3d8e7e2ff430e1a42d041a30 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightred",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_91742d7fccc3810beda5510ad4b033f4 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_94eafa333fc7c9e2f508280d517b8d93 = $(`<div id="html_94eafa333fc7c9e2f508280d517b8d93" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #e67e22; padding-left: 10px;">                 <b>#13 | 68 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>2449m x 2041m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>6.43 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_91742d7fccc3810beda5510ad4b033f4.setContent(html_94eafa333fc7c9e2f508280d517b8d93);
+            
+        
+
+        marker_0e30c51b7d660a44519639ae26fd5fb8.bindPopup(popup_91742d7fccc3810beda5510ad4b033f4)
+        ;
+
+        
+    
+    
+            marker_0e30c51b7d660a44519639ae26fd5fb8.bindTooltip(
+                `<div>
+                     <b>#13: Major Road</b><br>Score: 68
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0e30c51b7d660a44519639ae26fd5fb8.setIcon(icon_4006675f3d8e7e2ff430e1a42d041a30);
+            
+    
+        function geo_json_f871ff4f3a7ea9811c39007c0373b72c_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#e67e22", "fillColor": "#e67e22", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_f871ff4f3a7ea9811c39007c0373b72c_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_f871ff4f3a7ea9811c39007c0373b72c = L.geoJson(null, {
+                onEachFeature: geo_json_f871ff4f3a7ea9811c39007c0373b72c_onEachFeature,
+            
+                style: geo_json_f871ff4f3a7ea9811c39007c0373b72c_styler,
+            ...{
+}
+        });
+
+        function geo_json_f871ff4f3a7ea9811c39007c0373b72c_add (data) {
+            geo_json_f871ff4f3a7ea9811c39007c0373b72c
+                .addData(data);
+        }
+            geo_json_f871ff4f3a7ea9811c39007c0373b72c_add({"features": [{"geometry": {"coordinates": [[[-22.5866287, 64.0218622], [-22.5895992, 64.0249289], [-22.5972628, 64.0335399], [-22.5976013, 64.0341295], [-22.5977669, 64.0348596], [-22.5976831, 64.0379447], [-22.5978403, 64.0390417], [-22.5984904, 64.0400341], [-22.6008122, 64.0426567], [-22.604298, 64.045197], [-22.6077282, 64.0483935], [-22.6107113, 64.0507671], [-22.615984, 64.0539491], [-22.6202553, 64.0569706], [-22.6267394, 64.0602882], [-22.6285373, 64.0609966]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_f871ff4f3a7ea9811c39007c0373b72c.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_d79d71f1f68dada33e84973d107dacfd = L.marker(
+                [64.06027380833333, -22.691130816666668],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_93903df4b397a5d8fb6855959526889b = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightred",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_4e6947517adf6323111d0035c852311f = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_531878511c20431123ed760ab7162fc1 = $(`<div id="html_531878511c20431123ed760ab7162fc1" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #e67e22; padding-left: 10px;">                 <b>#14 | 64 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>1652m x 1922m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>9.35 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_4e6947517adf6323111d0035c852311f.setContent(html_531878511c20431123ed760ab7162fc1);
+            
+        
+
+        marker_d79d71f1f68dada33e84973d107dacfd.bindPopup(popup_4e6947517adf6323111d0035c852311f)
+        ;
+
+        
+    
+    
+            marker_d79d71f1f68dada33e84973d107dacfd.bindTooltip(
+                `<div>
+                     <b>#14: Major Road</b><br>Score: 64
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d79d71f1f68dada33e84973d107dacfd.setIcon(icon_93903df4b397a5d8fb6855959526889b);
+            
+    
+        function geo_json_08cf327fcceb48274e4bf28a4dc3df6a_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#e67e22", "fillColor": "#e67e22", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_08cf327fcceb48274e4bf28a4dc3df6a_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_08cf327fcceb48274e4bf28a4dc3df6a = L.geoJson(null, {
+                onEachFeature: geo_json_08cf327fcceb48274e4bf28a4dc3df6a_onEachFeature,
+            
+                style: geo_json_08cf327fcceb48274e4bf28a4dc3df6a_styler,
+            ...{
+}
+        });
+
+        function geo_json_08cf327fcceb48274e4bf28a4dc3df6a_add (data) {
+            geo_json_08cf327fcceb48274e4bf28a4dc3df6a
+                .addData(data);
+        }
+            geo_json_08cf327fcceb48274e4bf28a4dc3df6a_add({"features": [{"geometry": {"coordinates": [[[-22.6663781, 64.0711146], [-22.675631, 64.0690419], [-22.6802225, 64.0677453], [-22.6863738, 64.0654067], [-22.690358, 64.0633301], [-22.6926763, 64.0618135], [-22.6952277, 64.0597115], [-22.6967484, 64.0581135], [-22.6995752, 64.0543967], [-22.700371, 64.0535833], [-22.7041558, 64.0506632], [-22.705852, 64.0483654]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_08cf327fcceb48274e4bf28a4dc3df6a.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var marker_84538242f7f9afb8c7f3fae03e755957 = L.marker(
+                [63.956016500000004, -22.4217774875],
+                {
+}
+            ).addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+            var icon_525638a339a0e7090bf1452a27095ddf = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightred",
+  "iconColor": "white",
+  "icon": "road",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f2a7c8ea47bd78bfe6ea31b79611e663 = L.popup({
+  "maxWidth": 400,
+});
+
+        
+            
+                var html_69b24369fd3c9f15bcda0c422e461dae = $(`<div id="html_69b24369fd3c9f15bcda0c422e461dae" style="width: 100.0%; height: 100.0%;">         <div style="font-family: monospace; width: 350px;">             <h4 style="border-left: 5px solid #e67e22; padding-left: 10px;">                 <b>#15 | 62 | Major Road</b>             </h4>             <hr style="margin: 5px 0;">             <table style="width:100%; font-size: 13px;">                 <tr><td style="width:120px;"><b>Status</b></td><td>SAFE</td></tr>                 <tr><td><b>Dimensions</b></td><td>741m x 419m</td></tr>                 <tr><td><b>Surface</b></td><td>Asphalt</td></tr>                 <tr><td><b>Distance</b></td><td>9.53 km</td></tr>             </table>         </div>         </div>`)[0];
+                popup_f2a7c8ea47bd78bfe6ea31b79611e663.setContent(html_69b24369fd3c9f15bcda0c422e461dae);
+            
+        
+
+        marker_84538242f7f9afb8c7f3fae03e755957.bindPopup(popup_f2a7c8ea47bd78bfe6ea31b79611e663)
+        ;
+
+        
+    
+    
+            marker_84538242f7f9afb8c7f3fae03e755957.bindTooltip(
+                `<div>
+                     <b>#15: Major Road</b><br>Score: 62
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_84538242f7f9afb8c7f3fae03e755957.setIcon(icon_525638a339a0e7090bf1452a27095ddf);
+            
+    
+        function geo_json_269a40abe86459ee3ce8766eb72d2490_styler(feature) {
+            switch(feature.id) {
+                default:
+                    return {"color": "#e67e22", "fillColor": "#e67e22", "fillOpacity": 0.4, "weight": 2};
+            }
+        }
+
+        function geo_json_269a40abe86459ee3ce8766eb72d2490_onEachFeature(feature, layer) {
+
+            layer.on({
+            });
+        };
+        var geo_json_269a40abe86459ee3ce8766eb72d2490 = L.geoJson(null, {
+                onEachFeature: geo_json_269a40abe86459ee3ce8766eb72d2490_onEachFeature,
+            
+                style: geo_json_269a40abe86459ee3ce8766eb72d2490_styler,
+            ...{
+}
+        });
+
+        function geo_json_269a40abe86459ee3ce8766eb72d2490_add (data) {
+            geo_json_269a40abe86459ee3ce8766eb72d2490
+                .addData(data);
+        }
+            geo_json_269a40abe86459ee3ce8766eb72d2490_add({"features": [{"geometry": {"coordinates": [[[-22.420296, 63.9608362], [-22.4202442, 63.9600186], [-22.4196299, 63.9588293], [-22.4193957, 63.9577766], [-22.4197124, 63.9567096], [-22.4212043, 63.955007], [-22.4257493, 63.9506657], [-22.4279881, 63.948289]]], "type": "Polygon"}, "id": "0", "type": "Feature"}], "type": "FeatureCollection"});
+
+        
+    
+            geo_json_269a40abe86459ee3ce8766eb72d2490.addTo(feature_group_44b6839738608f9b7d516d4a7c567f5d);
+        
+    
+
+            L.control.groupedLayers(
+                null,
+                {
+                    "View Options" : {
+                        "Top 3 Sites" : feature_group_72f8f331cf208fd6938e20206d6b956b,
+                        "Top 5 Sites" : feature_group_668f2e5f1a5893e6832beb13eb5d57e1,
+                        "All Sites" : feature_group_44b6839738608f9b7d516d4a7c567f5d,
+                    },
+                },
+                {
+  "collapsed": false,
+  "exclusiveGroups": [
+"View Options",
+],
+},
+            ).addTo(map_4046a5cf44ec8daf0c315c267c13c336);
+            feature_group_72f8f331cf208fd6938e20206d6b956b.remove();
+            feature_group_44b6839738608f9b7d516d4a7c567f5d.remove();
+            feature_group_668f2e5f1a5893e6832beb13eb5d57e1.remove();
+
+        
+</script>
+</html>

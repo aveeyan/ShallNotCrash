@@ -5,8 +5,6 @@ Enhanced Emergency Detection Example
 import time
 from pathlib import Path
 import sys
-from collections import deque
-from typing import Dict, Any, Optional
 
 sys.path.append(str(Path(__file__).parent.parent))
 import time

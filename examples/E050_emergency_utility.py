@@ -15,7 +15,6 @@ from shallnotcrash.emergency.utilities import FlightPhase
 from shallnotcrash.emergency.utilities import (
     detect_anomalies,
     analyze_system_correlations,
-    recognize_emergency_patterns
 )
 from shallnotcrash.emergency.protocols import (
     detect_engine_failure,

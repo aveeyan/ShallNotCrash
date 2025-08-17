@@ -1,0 +1,395 @@
+# shallnotcrash/path_planner/utils/calculations.py
+"""
+--- [RECONSTRUCTION] ---
+Consolidates all calculation logic for the path planner. This includes
+touchdown point selection, A* state generation (flight dynamics), cost
+calculation, and path smoothing. The logic is now transparent and driven
+by the single `constants.py` file.
+"""
+import math
+import numpy as np
+from scipy.interpolate import splprep, splev
+from typing import List, Tuple, Optional
+
+from ..data_models import AircraftState, Waypoint
+from ...landing_site.data_models import LandingSite
+from . import constants as const
+from .coordinates import destination_point, calculate_bearing
+
+def get_landing_sequence(site: LandingSite, wind_heading_deg: float) -> Optional[Tuple[Waypoint, Waypoint]]:
+    """
+    Determines the optimal runway threshold and its Final Approach Fix (FAF).
+    Selects the threshold that provides the best headwind.
+    """
+    if site.elevation_m is not None:
+        site_elevation_ft = site.elevation_m * const.METERS_TO_FEET
+    else:
+        # Fallback if no elevation data is present
+        site_elevation_ft = 0
+
+    if site.site_type != "RUNWAY" or site.orientation_degrees is None or site.length_m is None:
+        # Fallback for non-runways or sites with incomplete data
+        center_point = Waypoint(lat=site.lat, lon=site.lon, alt_ft=site_elevation_ft, airspeed_kts=const.AIRCRAFT_GLIDE_SPEED_KTS)
+        return (center_point, center_point)
+
+    # Calculate positions of the two runway thresholds
+    runway_orientation = site.orientation_degrees
+    half_length_nm = (site.length_m / 2.0) / const.METERS_PER_NAUTICAL_MILE
+    lat1, lon1 = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
+    reciprocal_orientation = (runway_orientation + 180) % 360
+    lat2, lon2 = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)
+
+    # Determine which threshold has a better headwind component
+    wind_diff1 = abs(((reciprocal_orientation - wind_heading_deg + 180) % 360) - 180)
+    wind_diff2 = abs(((runway_orientation - wind_heading_deg + 180) % 360) - 180)
+
+    if wind_diff1 <= wind_diff2:
+        best_lat, best_lon, approach_heading = lat1, lon1, reciprocal_orientation
+    else:
+        best_lat, best_lon, approach_heading = lat2, lon2, runway_orientation
+
+    threshold = Waypoint(
+        lat=best_lat, lon=best_lon, alt_ft=site_elevation_ft, airspeed_kts=const.AIRCRAFT_GLIDE_SPEED_KTS,
+        notes=f"THRESHOLD_HDG_{approach_heading:.0f}"
+    )
+
+    # Calculate the FAF based on the desired glideslope
+    faf_approach_bearing = (approach_heading - 180) % 360
+    faf_lat, faf_lon = destination_point(threshold.lat, threshold.lon, faf_approach_bearing, const.FINAL_APPROACH_FIX_DISTANCE_NM)
+    faf_alt_ft = site_elevation_ft + (math.tan(math.radians(const.FINAL_APPROACH_GLIDESLOPE_DEG)) * const.FINAL_APPROACH_FIX_DISTANCE_NM * const.FEET_PER_NAUTICAL_MILE)
+
+    final_approach_fix = Waypoint(
+        lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=const.AIRCRAFT_GLIDE_SPEED_KTS,
+        notes=f"FAF_FOR_THR_{approach_heading:.0f}"
+    )
+    
+    return (final_approach_fix, threshold)
+
+def get_reachable_states(current_state: AircraftState) -> List[Tuple[AircraftState, float]]:
+    """
+    Generates a robust set of next possible states: straight, left, and right.
+    This provides the A* search with simple, reliable options for exploration.
+    """
+    reachable_states = []
+    distance_per_step_nm = (const.AIRCRAFT_GLIDE_SPEED_KTS * const.TIME_STEP_S) / 3600.0
+    altitude_loss_per_step_ft = (distance_per_step_nm * const.FEET_PER_NAUTICAL_MILE) / const.AIRCRAFT_GLIDE_RATIO
+    turn_angle_per_step_deg = const.AIRCRAFT_TURN_RATE_DEG_S * const.TIME_STEP_S
+
+    # Options: Continue Straight, Standard Rate Turn Left, Standard Rate Turn Right
+    turn_options = [0, -turn_angle_per_step_deg, turn_angle_per_step_deg]
+
+    for turn_deg in turn_options:
+        new_heading = (current_state.heading_deg + turn_deg) % 360
+        new_lat, new_lon = destination_point(current_state.lat, current_state.lon, current_state.heading_deg, distance_per_step_nm)
+        new_alt = current_state.alt_ft - altitude_loss_per_step_ft
+        
+        new_state = AircraftState(
+            lat=new_lat, lon=new_lon, alt_ft=new_alt, heading_deg=new_heading,
+            airspeed_kts=const.AIRCRAFT_GLIDE_SPEED_KTS
+        )
+        reachable_states.append((new_state, turn_deg))
+        
+    return reachable_states
+
+def calculate_move_cost(distance_nm: float, turn_angle_deg: float) -> float:
+    """
+    Calculates a stable, non-negative cost for a state transition.
+    Cost = distance + a small, predictable penalty for turning.
+    """
+    turn_penalty = (abs(turn_angle_deg) / 180.0) * const.TURN_PENALTY_FACTOR
+    return distance_nm + turn_penalty
+
+def smooth_path(waypoints: List[Waypoint]) -> List[Waypoint]:
+    """
+    Smooths a raw path of waypoints using B-spline interpolation.
+    """
+    if len(waypoints) < 4:
+        return waypoints
+
+    coords = np.array([(wp.lat, wp.lon) for wp in waypoints])
+    altitudes = np.array([wp.alt_ft for wp in waypoints])
+    x, y = coords[:, 0], coords[:, 1]
+    
+    smoothing_factor = len(x) * const.SMOOTHING_FACTOR_MULTIPLIER
+    tck, u = splprep([x, y], s=smoothing_factor, k=3)
+    
+    u_new = np.linspace(u.min(), u.max(), const.SMOOTHED_PATH_NUM_POINTS)
+    x_new, y_new = splev(u_new, tck)
+    
+    alt_new = np.interp(u_new, u, altitudes)
+    airspeed = waypoints[0].airspeed_kts if waypoints else const.AIRCRAFT_GLIDE_SPEED_KTS
+
+    return [
+        Waypoint(lat=lat, lon=lon, alt_ft=alt, airspeed_kts=airspeed)
+        for lat, lon, alt in zip(x_new, y_new, alt_new)
+    ]# shallnotcrash/path_planner/utils/coordinates.py
+"""
+Provides fundamental, validated geographic coordinate calculations.
+"""
+import math
+
+def haversine_distance_nm(lat1, lon1, lat2, lon2) -> float:
+    R_nm = 3440.065 # Earth radius in nautical miles
+    lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
+    lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
+
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R_nm * c
+
+def calculate_bearing(lat1, lon1, lat2, lon2) -> float:
+    lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
+    lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
+    
+    dLon = lon2_rad - lon1_rad
+    y = math.sin(dLon) * math.cos(lat2_rad)
+    x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dLon)
+    
+    bearing_rad = math.atan2(y, x)
+    return (math.degrees(bearing_rad) + 360) % 360
+
+def destination_point(lat, lon, bearing_deg, distance_nm) -> tuple[float, float]:
+    R_nm = 3440.065
+    lat_rad, lon_rad = math.radians(lat), math.radians(lon)
+    bearing_rad = math.radians(bearing_deg)
+    
+    lat2_rad = math.asin(math.sin(lat_rad) * math.cos(distance_nm / R_nm) +
+                         math.cos(lat_rad) * math.sin(distance_nm / R_nm) * math.cos(bearing_rad))
+    
+    lon2_rad = lon_rad + math.atan2(math.sin(bearing_rad) * math.sin(distance_nm / R_nm) * math.cos(lat_rad),
+                                     math.cos(distance_nm / R_nm) - math.sin(lat_rad) * math.sin(lat2_rad))
+    
+    return math.degrees(lat2_rad), math.degrees(lon2_rad)# shallnotcrash/path_planner/utils/cost_functions.py
+"""
+Defines a stable, non-negative cost function for the A* search.
+"""
+
+class CostCalculator:
+    """
+    Calculates the cost of moving between states in the A* search.
+    """
+    def __init__(self, turn_penalty_factor: float):
+        # --- [DEFINITIVE STABILITY FIX] ---
+        # The alignment bonus has been removed. It was creating negative costs,
+        # which violates the principles of A* and destabilizes the search.
+        self.turn_penalty_factor = turn_penalty_factor
+
+    def calculate_move_cost(
+        self,
+        base_distance: float,
+        turn_angle_deg: float
+    ) -> float:
+        """
+        Calculates a stable, non-negative cost for a state transition.
+        Cost = distance + turn penalty.
+        """
+        # 1. Base cost is the physical distance traveled.
+        cost = base_distance
+
+        # 2. Add a simple, non-negative penalty for the magnitude of the turn.
+        # This ensures that straighter paths are preferred, all else being equal.
+        turn_penalty = (abs(turn_angle_deg) / 180.0) * self.turn_penalty_factor
+        cost += turn_penalty
+        
+        return cost# shallnotcrash/path_planner/utils/flight_dynamics.py
+"""
+Models the aircraft's performance and generates a robust, goal-aware set of
+next possible states for the A* search.
+"""
+import math
+from typing import List, Tuple
+from ..data_models import AircraftState, Waypoint
+from ..constants import PlannerConstants
+from .coordinates import destination_point, calculate_bearing
+
+class AircraftPerformanceModel:
+    """
+    Defines flight characteristics and generates reachable states.
+    """
+    def __init__(self):
+        self.planner_const = PlannerConstants()
+        self.glide_speed_kts = 75
+        self.turn_rate_deg_s = 3
+        self.time_step_s = 20
+
+    def get_glide_ratio(self) -> float:
+        return 9.0
+
+    def get_reachable_states(
+        self,
+        current_state: AircraftState,
+        goal_waypoint: Waypoint,
+        emergency_profile: str
+    ) -> List[Tuple[AircraftState, float]]:
+        """
+        --- [DEFINITIVE ROBUSTNESS FIX] ---
+        Generates a balanced set of next states: standard maneuvers for exploration
+        and a goal-oriented maneuver for exploitation. This prevents the planner
+        from getting trapped by an overly restrictive strategy.
+        """
+        # --- Standard Maneuvers (for exploration) ---
+        # 1. Continue Straight
+        # 2. Standard Rate Turn Left
+        # 3. Standard Rate Turn Right
+        turn_angles = [
+            0,
+            -self.turn_rate_deg_s * self.time_step_s,
+            self.turn_rate_deg_s * self.time_step_s
+        ]
+        
+        # --- Intelligent Maneuver (for exploitation) ---
+        bearing_to_goal = calculate_bearing(current_state.lat, current_state.lon, goal_waypoint.lat, goal_waypoint.lon)
+        required_turn = bearing_to_goal - current_state.heading_deg
+        if required_turn > 180: required_turn -= 360
+        if required_turn < -180: required_turn += 360
+        
+        # Clamp the "smart" turn to what's possible in one time step and add it to our options
+        max_turn_per_step = self.turn_rate_deg_s * self.time_step_s
+        smart_turn = max(-max_turn_per_step, min(max_turn_per_step, required_turn))
+        turn_angles.append(smart_turn)
+
+        reachable_states = []
+        dist_nm = (self.glide_speed_kts * self.time_step_s) / 3600.0
+        dist_ft = dist_nm * self.planner_const.FEET_PER_NAUTICAL_MILE
+        alt_loss_ft = dist_ft / self.get_glide_ratio()
+
+        for turn_deg in set(turn_angles): # Use set to avoid duplicate "straight" or "turn" options
+            new_heading = (current_state.heading_deg + turn_deg) % 360
+            
+            # Use the robust, tested destination_point function
+            new_lat, new_lon = destination_point(current_state.lat, current_state.lon, new_heading, dist_nm)
+            
+            new_alt_ft = current_state.alt_ft - alt_loss_ft
+            
+            # The turn rate is simply the magnitude of the turn over the time step
+            turn_rate = abs(turn_deg) / self.time_step_s
+
+            new_state = AircraftState(
+                lat=new_lat,
+                lon=new_lon,
+                alt_ft=new_alt_ft,
+                heading_deg=new_heading,
+                airspeed_kts=self.glide_speed_kts
+            )
+            reachable_states.append((new_state, turn_rate))
+            
+        return reachable_states# shallnotcrash/path_planner/utils/smoothing.py
+import numpy as np
+from scipy.interpolate import splprep, splev
+from typing import List
+from ..data_models import Waypoint
+
+DEFAULT_NUM_POINTS = 500
+
+# --- [DEFINITIVE FIX 2] ---
+# To achieve a significantly smoother path, the smoothing factor is increased.
+# This creates a more generalized, flowing curve rather than one that tries
+# to pass too closely to the original, jagged A* points.
+SMOOTHING_FACTOR_MULTIPLIER = 0.1 
+
+class PathSmoother:
+    """
+    Smooths a raw path of waypoints using B-spline interpolation.
+    """
+    def smooth_path(self, waypoints: List[Waypoint], k: int = 3) -> List[Waypoint]:
+        if len(waypoints) < k + 1:
+            return waypoints
+
+        coords = np.array([(wp.lat, wp.lon) for wp in waypoints])
+        altitudes = np.array([wp.alt_ft for wp in waypoints])
+        x, y = coords[:, 0], coords[:, 1]
+        
+        smoothing_factor = len(x) * SMOOTHING_FACTOR_MULTIPLIER
+        tck, u = splprep([x, y], s=smoothing_factor, k=k)
+        
+        u_new = np.linspace(u.min(), u.max(), DEFAULT_NUM_POINTS)
+        x_new, y_new = splev(u_new, tck)
+        
+        alt_new = np.interp(u_new, u, altitudes)
+        airspeed = waypoints[0].airspeed_kts if waypoints else 65
+
+        smoothed_waypoints = [
+            Waypoint(lat=lat, lon=lon, alt_ft=alt, airspeed_kts=airspeed)
+            for lat, lon, alt in zip(x_new, y_new, alt_new)
+        ]
+        
+        print(f"SMOOTHER: Path successfully smoothed from {len(waypoints)} to {len(smoothed_waypoints)} waypoints using k={k} spline.")
+        return smoothed_waypoints# shallnotcrash/path_planner/utils/touchdown.py
+import math
+from typing import List, Tuple, Optional
+from ..data_models import Waypoint
+from ...landing_site.data_models import LandingSite
+from .coordinates import destination_point
+
+METERS_TO_FEET = 3.28084
+FAF_DISTANCE_NM = 3.0
+METERS_PER_NAUTICAL_MILE = 1852.0
+
+class TouchdownSelector:
+    """
+    Determines the best physical point to target for landing and its associated FAF.
+    """
+    def get_landing_sequence(self, site: LandingSite, wind_heading_deg: float) -> Optional[Tuple[Waypoint, Waypoint]]:
+        """
+        Calculates the optimal runway threshold and its corresponding Final Approach Fix (FAF).
+        It selects the threshold that provides the best headwind component.
+        """
+        site_elevation_ft = self._get_site_elevation_ft(site)
+
+        # --- [DEFINITIVE FIX 3] ---
+        # This logic now functions correctly because the data model has been fixed.
+        # It checks for the necessary attributes provided by the landing_site library.
+        if site.site_type != "RUNWAY" or site.orientation_degrees is None or site.length_m is None:
+            center_point = Waypoint(lat=site.lat, lon=site.lon, alt_ft=site_elevation_ft, airspeed_kts=65)
+            return (center_point, center_point)
+
+        runway_orientation = site.orientation_degrees
+        half_length_nm = (site.length_m / 2.0) / METERS_PER_NAUTICAL_MILE
+
+        lat1, lon1 = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
+        reciprocal_orientation = (runway_orientation + 180) % 360
+        lat2, lon2 = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)
+
+        landing_heading1 = reciprocal_orientation
+        landing_heading2 = runway_orientation
+
+        wind_diff1 = abs(((landing_heading1 - wind_heading_deg + 180) % 360) - 180)
+        wind_diff2 = abs(((landing_heading2 - wind_heading_deg + 180) % 360) - 180)
+
+        if wind_diff1 <= wind_diff2:
+            best_lat, best_lon, approach_heading = lat1, lon1, landing_heading1
+        else:
+            best_lat, best_lon, approach_heading = lat2, lon2, landing_heading2
+
+        threshold = Waypoint(
+            lat=best_lat, lon=best_lon, alt_ft=site_elevation_ft, airspeed_kts=65,
+            notes=f"THRESHOLD_HDG_{approach_heading:.0f}"
+        )
+
+        faf_approach_heading = (approach_heading - 180) % 360
+        faf_lat, faf_lon = destination_point(threshold.lat, threshold.lon, faf_approach_heading, FAF_DISTANCE_NM)
+        faf_alt_ft = site_elevation_ft + (0.0524 * FAF_DISTANCE_NM * 6076.12)
+
+        final_approach_fix = Waypoint(
+            lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=65,
+            notes=f"FAF_FOR_THR_{approach_heading:.0f}"
+        )
+        
+        return (final_approach_fix, threshold)
+
+    def get_touchdown_points(self, site: LandingSite, wind_heading_deg: float) -> List[Waypoint]:
+        """[DEPRECATED] Maintained for backward compatibility."""
+        sequence = self.get_landing_sequence(site, wind_heading_deg)
+        if not sequence: return []
+        _faf, threshold = sequence
+        return [threshold]
+
+    def _get_site_elevation_ft(self, site: LandingSite) -> float:
+        if hasattr(site, 'elevation_ft') and site.elevation_ft is not None:
+            return site.elevation_ft
+        if hasattr(site, 'elevation_m') and site.elevation_m is not None:
+            return site.elevation_m * METERS_TO_FEET
+        return 0.0

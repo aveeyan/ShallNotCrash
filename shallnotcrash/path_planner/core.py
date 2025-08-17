@@ -1,143 +1,115 @@
 # shallnotcrash/path_planner/core.py
 """
 Contains the primary PathPlanner class, which orchestrates the A* search
-and path generation process.
+and path generation process using the refactored utilities.
 """
 import heapq
-import math
-from typing import List, Dict, Optional
-# --- [No change to imports] ---
-from .data_models import AircraftState, FlightPath, Waypoint
+from typing import List, Dict, Optional, Tuple
+
 from ..landing_site.data_models import LandingSite
-from ..emergency.constants import EmergencySeverity
-from .utils.flight_dynamics import AircraftPerformanceModel
-from .utils.touchdown import TouchdownSelector
+from .data_models import AircraftState, FlightPath, Waypoint
+from .constants import PlannerConstants, AircraftProfile
+from .utils import touchdown, flight_dynamics, cost_functions, smoothing, calculations
 from .utils.coordinates import haversine_distance_nm
-from .utils.smoothing import PathSmoother
 
 class PathPlanner:
     """
-    Generates an optimal flight path using a 3D A* search algorithm,
-    respecting aircraft performance constraints and emergency scenarios.
+    Generates an optimal flight path using a 3D A* search algorithm.
     """
-    def __init__(self):
-        self.performance_model = AircraftPerformanceModel()
-        self.touchdown_selector = TouchdownSelector()
-        self.path_smoother = PathSmoother()
-
     def generate_path(
         self,
         current_state: AircraftState,
         target_site: LandingSite,
-        emergency_type: EmergencySeverity,
-        wind_heading_deg: float = 0.0
+        wind_heading_deg: float = 0.0,
+        # --- [FIX] Changed parameter name from 'emergency_profile' to 'emergency_type' ---
+        emergency_type: str = "EMERGENCY_GLIDE"
     ) -> Optional[FlightPath]:
-        print(f"PATH PLANNER: Generating path for {emergency_type.name} to {target_site.site_type}.")
-        touchdown_points = self.touchdown_selector.get_touchdown_points(target_site, wind_heading_deg)
-        if not touchdown_points:
-            print("PATH PLANNER ERROR: No valid touchdown point could be determined.")
+        """
+        Main method to generate a complete, smoothed flight path to a landing site.
+        """
+        landing_sequence = touchdown.get_landing_sequence(target_site, wind_heading_deg)
+        if not landing_sequence:
+            print("PATH PLANNER FAILURE: Could not determine a landing sequence.")
             return None
-        goal_waypoint = touchdown_points[0]
-        print(f"PATH PLANNER: Target acquired -> Lat: {goal_waypoint.lat:.4f}, Lon: {goal_waypoint.lon:.4f}")
-        raw_path_states = self._run_astar_search(current_state, goal_waypoint, emergency_type.name)
+        
+        faf_goal, threshold_final = landing_sequence
+        print(f"PATH PLANNER: A* Target is FAF -> Lat: {faf_goal.lat:.4f}, Lon: {faf_goal.lon:.4f}, Alt: {faf_goal.alt_ft:.0f} ft")
+
+        raw_path_states = self._run_astar_search(current_state, faf_goal)
         if not raw_path_states:
             print("PATH PLANNER FAILURE: A* search could not find a valid path.")
             return None
-        raw_waypoints = [Waypoint(lat=s.lat, lon=s.lon, alt_ft=s.alt_ft, airspeed_kts=s.airspeed_kts) for s in raw_path_states]
-        final_waypoints = self.path_smoother.smooth_path(raw_waypoints)
-        path_distance = self._calculate_path_distance(final_waypoints)
-        glide_speed = self.performance_model.glide_speed_kts
-        estimated_time = (path_distance / glide_speed) * 60 if glide_speed > 0 else 0
+
+        raw_waypoints = [Waypoint(s.lat, s.lon, s.alt_ft, s.airspeed_kts) for s in raw_path_states]
+        raw_waypoints.append(threshold_final)
+        
+        final_waypoints = smoothing.smooth_path(raw_waypoints)
+        
+        path_distance = calculations.calculate_path_distance(final_waypoints)
+        est_time = (path_distance / AircraftProfile.GLIDE_SPEED_KTS) * 60 if AircraftProfile.GLIDE_SPEED_KTS > 0 else 0
+        
         return FlightPath(
             waypoints=final_waypoints,
             total_distance_nm=path_distance,
-            estimated_time_min=estimated_time,
-            emergency_profile=emergency_type.name
+            estimated_time_min=est_time,
+            # --- [FIX] Pass the correct variable to the FlightPath constructor ---
+            emergency_profile=emergency_type
         )
-    
-    # --- [CORRECTIVE PATCH APPLIED TO _run_astar_search] ---
-    def _run_astar_search(self, start_state: AircraftState, goal_waypoint: Waypoint, emergency_profile: str) -> Optional[List[AircraftState]]:
-        """The core A* search algorithm implementation."""
-        
-        # --- PATCH 1: Initialize a unique counter for tie-breaking. ---
-        counter = 0
 
-        # The open set is a priority queue of (f_cost, unique_id, state).
-        # The unique_id (counter) ensures heapq never has to compare two AircraftState objects.
-        open_set = [(0, counter, start_state)]
-        
-        came_from: Dict[AircraftState, AircraftState] = {}
-        g_score: Dict[AircraftState, float] = {start_state: 0}
-        f_score: Dict[AircraftState, float] = {start_state: self._calculate_heuristic(start_state, goal_waypoint)}
-
-        while open_set:
-            # Get the node in the open set with the lowest f_score
-            # The counter is discarded with '_' as it's only for sorting.
-            _, _, current = heapq.heappop(open_set)
-
-            if self._is_goal_reached(current, goal_waypoint):
-                print("PATH PLANNER: Goal reached. Reconstructing path.")
-                return self._reconstruct_path(came_from, current)
-
-            neighbors = self.performance_model.get_reachable_states(current, emergency_profile)
-            
-            for neighbor in neighbors:
-                move_cost = haversine_distance_nm(current.lat, current.lon, neighbor.lat, neighbor.lon)
-                tentative_g_score = g_score.get(current, float('inf')) + move_cost
-
-                if tentative_g_score < g_score.get(neighbor, float('inf')):
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    h_cost = self._calculate_heuristic(neighbor, goal_waypoint)
-                    f_score[neighbor] = tentative_g_score + h_cost
-                    
-                    # --- PATCH 2: Increment the counter with each push. ---
-                    counter += 1
-                    # --- PATCH 3: Push the tuple with the counter as the tie-breaker. ---
-                    heapq.heappush(open_set, (f_score[neighbor], counter, neighbor))
-        
-        return None
-    
-    def _calculate_heuristic(self, state: AircraftState, goal: Waypoint) -> float:
-        """Heuristic function h(n). Estimates cost from state to goal (distance in nm)."""
-        dist_nm = haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon)
-        alt_diff_ft = state.alt_ft - goal.alt_ft
-
-        if alt_diff_ft <= 0:
-            return float('inf')
-
-        glide_ratio = self.performance_model.get_glide_ratio()
-        if glide_ratio <= 0:
-            return float('inf')
-        
-        # Maximum distance the aircraft can glide from its current altitude
-        max_glide_dist_ft = alt_diff_ft * glide_ratio
-        max_glide_dist_nm = max_glide_dist_ft / 6076.12
-        
-        if max_glide_dist_nm < dist_nm:
-            return float('inf') # Physically impossible to reach
-
-        return dist_nm
+    def _get_discrete_key(self, state: AircraftState) -> Tuple[float, float, int, int]:
+        lat = round(state.lat, PlannerConstants.LAT_LON_PRECISION)
+        lon = round(state.lon, PlannerConstants.LAT_LON_PRECISION)
+        alt = round(state.alt_ft / PlannerConstants.ALT_PRECISION_FT)
+        hdg = round(state.heading_deg / PlannerConstants.HEADING_PRECISION_DEG)
+        return (lat, lon, alt, hdg)
 
     def _is_goal_reached(self, state: AircraftState, goal: Waypoint) -> bool:
-        """Checks if the state is within the goal's tolerance."""
         dist_nm = haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon)
         alt_diff_ft = abs(state.alt_ft - goal.alt_ft)
-        return dist_nm < 0.2 and alt_diff_ft < 150
+        return dist_nm < 0.5 and alt_diff_ft < (PlannerConstants.ALT_PRECISION_FT * 2)
 
     def _reconstruct_path(self, came_from: Dict, current: AircraftState) -> List[AircraftState]:
-        """Traces back from the goal to the start to build the path."""
         total_path = [current]
-        while current in came_from:
-            current = came_from[current]
+        current_key = self._get_discrete_key(current)
+        while current_key in came_from:
+            current = came_from[current_key]
             total_path.append(current)
+            current_key = self._get_discrete_key(current)
         return total_path[::-1]
 
-    def _calculate_path_distance(self, waypoints: List[Waypoint]) -> float:
-        """Calculates the total distance of a path."""
-        total_dist = 0.0
-        for i in range(len(waypoints) - 1):
-            p1 = waypoints[i]
-            p2 = waypoints[i+1]
-            total_dist += haversine_distance_nm(p1.lat, p1.lon, p2.lat, p2.lon)
-        return total_dist
+    def _run_astar_search(self, start_state: AircraftState, goal_waypoint: Waypoint) -> Optional[List[AircraftState]]:
+        counter = 0
+        start_key = self._get_discrete_key(start_state)
+        
+        open_set = [(0, counter, start_state)]
+        came_from: Dict[tuple, AircraftState] = {}
+        g_score: Dict[tuple, float] = {start_key: 0}
+        f_score: Dict[tuple, float] = {start_key: calculations.calculate_heuristic(start_state, goal_waypoint)}
+
+        while open_set:
+            _, _, current = heapq.heappop(open_set)
+            current_key = self._get_discrete_key(current)
+
+            if self._is_goal_reached(current, goal_waypoint):
+                return self._reconstruct_path(came_from, current)
+
+            neighbors = flight_dynamics.get_reachable_states(current, goal_waypoint)
+            
+            for neighbor, turn_deg in neighbors:
+                dist_moved = haversine_distance_nm(current.lat, current.lon, neighbor.lat, neighbor.lon)
+                move_cost = cost_functions.calculate_move_cost(dist_moved, turn_deg)
+                
+                tentative_g_score = g_score.get(current_key, float('inf')) + move_cost
+                neighbor_key = self._get_discrete_key(neighbor)
+
+                if tentative_g_score < g_score.get(neighbor_key, float('inf')):
+                    came_from[neighbor_key] = current
+                    g_score[neighbor_key] = tentative_g_score
+                    h_cost = calculations.calculate_heuristic(neighbor, goal_waypoint)
+                    if h_cost == float('inf'): continue
+
+                    f_score[neighbor_key] = tentative_g_score + h_cost
+                    counter += 1
+                    heapq.heappush(open_set, (f_score[neighbor_key], counter, neighbor))
+        
+        return None

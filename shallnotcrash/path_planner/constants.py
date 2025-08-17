@@ -1,8 +1,8 @@
 # shallnotcrash/path_planner/constants.py
 """
 Centralized constants for the Path Planner module.
-This includes physical constants, A* search parameters, and imports of the
-specific aircraft performance profile being used.
+This includes physical constants, A* search parameters, and an adapter
+for the specific aircraft performance profile being used.
 """
 import math
 from shallnotcrash.airplane.constants import C172PConstants
@@ -10,25 +10,41 @@ from shallnotcrash.airplane.constants import C172PConstants
 class PlannerConstants:
     """Configuration for the A* path planner's behavior."""
     
-    # --- A* Search Parameters ---
-    # The time, in seconds, for each step of the kinematic projection.
-    # Smaller values are more accurate but computationally expensive.
-    TIME_DELTA_SEC = 10
-    
-    # The bank angle the planner will use for standard rate turns.
-    # Kept conservative for safety and passenger comfort.
-    DEFAULT_BANK_ANGLE_DEG = 25.0
+    # --- Planner's Maneuvering Assumptions ---
+    DEFAULT_TURN_RATE_DEG_S = 3.0
 
-    # --- Physical Constants ---
+    # --- Physical & Conversion Constants ---
     FEET_PER_NAUTICAL_MILE = 6076.12
-    DEGREES_TO_RADIANS = math.pi / 180.0
-    RADIANS_TO_DEGREES = 180.0 / math.pi
-    EARTH_RADIUS_NM = 3440.065 # Earth's radius in nautical miles
+    METERS_TO_FEET = 3.28084
+    METERS_PER_NAUTICAL_MILE = 1852.0
+    EARTH_RADIUS_NM = 3440.065
+
+    # --- A* Search & Kinematics ---
+    TIME_DELTA_SEC = 20.0
+    
+    # --- Discretization (State-space resolution for A*) ---
+    LAT_LON_PRECISION = 4
+    ALT_PRECISION_FT = 100
+    HEADING_PRECISION_DEG = 15
+
+    # --- Final Approach & Landing Sequence ---
+    FINAL_APPROACH_FIX_DISTANCE_NM = 3.0
+    FINAL_APPROACH_GLIDESLOPE_DEG = 3.0
+
+    # --- Path Smoothing ---
+    SMOOTHED_PATH_NUM_POINTS = 500
+    SMOOTHING_FACTOR = 0.00001
+
+    # --- Costing and Heuristics ---
+    TURN_PENALTY_FACTOR = 5.0
+    # --- [NEW] Add a significant penalty for being pointed away from the goal.
+    # This value is an "equivalent distance" in nautical miles.
+    HEADING_MISMATCH_PENALTY = 75.0
 
 class AircraftProfile:
     """
-    Imports and exposes the specific aircraft constants for the planner to use.
-    This acts as a single point of reference for all aircraft performance data.
+    Acts as an adapter to provide a clean, consistent interface to the
+    planner, regardless of the source constant file's structure.
     """
-    # Currently locked to the Cessna 172P operational profile.
-    PERFORMANCE = C172PConstants
+    GLIDE_SPEED_KTS: float = C172PConstants.EMERGENCY['GLIDE_SPEED']
+    GLIDE_RATIO: float = C172PConstants.EMERGENCY['GLIDE_RATIO']

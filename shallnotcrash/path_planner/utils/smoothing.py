@@ -1,69 +1,51 @@
 # shallnotcrash/path_planner/utils/smoothing.py
 """
-Provides path smoothing capabilities using B-Spline interpolation.
-This converts the jagged A* path into a flyable trajectory.
+Smooths a raw path of waypoints using B-spline interpolation with
+physically-based chordal length parameterization.
 """
-from typing import List
 import numpy as np
 from scipy.interpolate import splprep, splev
+from typing import List
 from ..data_models import Waypoint
+from ..constants import PlannerConstants, AircraftProfile
 
-class PathSmoother:
-    """A class to handle the smoothing of a flight path."""
+def smooth_path(waypoints: List[Waypoint]) -> List[Waypoint]:
+    """
+    Smooths a jagged A* path into a flyable curve using B-spline interpolation.
+    This implementation uses cumulative chordal length for parameterization,
+    providing a much more accurate and stable smoothing result.
+    """
+    if len(waypoints) < 4:
+        # Path is too short for cubic B-spline interpolation.
+        return waypoints
 
-    @staticmethod
-    def smooth_path(waypoints: List[Waypoint], smoothness_factor: float = 0.5, num_points: int = 100) -> List[Waypoint]:
-        """
-        Smooths a list of waypoints using B-spline interpolation.
+    coords = np.array([(wp.lat, wp.lon) for wp in waypoints])
+    altitudes = np.array([wp.alt_ft for wp in waypoints])
+    x, y = coords[:, 0], coords[:, 1]
 
-        :param waypoints: The raw list of waypoints from the A* search.
-        :param smoothness_factor: Controls the smoothness of the spline. 0 is a line through all points.
-        :param num_points: The number of points to generate for the final smooth path.
-        :return: A new, denser list of waypoints representing the smooth path.
-        """
-        if len(waypoints) < 4:
-            # Cannot create a cubic spline with fewer than 4 points.
-            print("SMOOTHER WARNING: Path too short for smoothing. Returning original path.")
-            return waypoints
+    # --- [NEW ALGORITHM] ---
+    # 1. Calculate the distance between each consecutive point.
+    diffs = np.diff(coords, axis=0)
+    segment_lengths = np.linalg.norm(diffs, axis=1)
+    
+    # 2. Create the parameter vector 'u' based on cumulative chord length.
+    # This ensures the parameterization is proportional to the distance along the path.
+    u = np.concatenate(([0], np.cumsum(segment_lengths)))
+    u = u / u[-1] # Normalize u to the range [0, 1]
 
-        try:
-            # Unpack waypoint data into separate lists for processing
-            lats = [wp.lat for wp in waypoints]
-            lons = [wp.lon for wp in waypoints]
-            alts = [wp.alt_ft for wp in waypoints]
-            airspeeds = [wp.airspeed_kts for wp in waypoints]
+    # 3. Perform B-spline fitting with the new parameterization.
+    # The smoothing factor 's' is now an absolute value, not a multiplier.
+    tck, _ = splprep([x, y], u=u, s=PlannerConstants.SMOOTHING_FACTOR, k=3)
+    
+    # 4. Evaluate the smoothed spline at a high number of points.
+    u_new = np.linspace(u.min(), u.max(), PlannerConstants.SMOOTHED_PATH_NUM_POINTS)
+    x_new, y_new = splev(u_new, tck)
+    
+    # 5. Interpolate altitudes along the new path against the original parameterization.
+    alt_new = np.interp(u_new, u, altitudes)
+    airspeed = AircraftProfile.GLIDE_SPEED_KTS
 
-            # The B-spline needs to be parameterized. We stack our 3D coordinates.
-            coords = np.vstack((lats, lons, alts))
-
-            # Generate the B-spline representation of the path.
-            # splprep finds the parameterization of the curve.
-            # k=3 specifies a cubic spline, which is standard for smooth curves.
-            # s is the smoothness factor.
-            tck, u = splprep(coords, s=smoothness_factor, k=3)
-
-            # Evaluate the spline at a high number of points to create the smooth path
-            u_new = np.linspace(u.min(), u.max(), num_points)
-            new_lats, new_lons, new_alts = splev(u_new, tck)
-
-            # Airspeed can be linearly interpolated for the new points
-            new_airspeeds = np.interp(u_new, u, airspeeds)
-
-            # Assemble the new list of smooth waypoints
-            smooth_waypoints = []
-            for i in range(len(new_lats)):
-                smooth_waypoints.append(
-                    Waypoint(
-                        lat=new_lats[i],
-                        lon=new_lons[i],
-                        alt_ft=new_alts[i],
-                        airspeed_kts=new_airspeeds[i]
-                    )
-                )
-            
-            print(f"SMOOTHER: Path successfully smoothed from {len(waypoints)} to {len(smooth_waypoints)} waypoints.")
-            return smooth_waypoints
-
-        except Exception as e:
-            print(f"SMOOTHER CRITICAL ERROR: Failed to smooth path - {e}. Returning original path.")
-            return waypoints
+    return [
+        Waypoint(lat=lat, lon=lon, alt_ft=alt, airspeed_kts=airspeed)
+        for lat, lon, alt in zip(x_new, y_new, alt_new)
+    ]

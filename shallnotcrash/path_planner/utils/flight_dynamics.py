@@ -1,65 +1,41 @@
 # shallnotcrash/path_planner/utils/flight_dynamics.py
 """
-Models the aircraft's performance envelope for path planning.
+Models the aircraft's performance to generate reachable next states for the A* search.
 """
-from typing import List
-import math
-from ..data_models import AircraftState
-from .coordinates import destination_point
+from typing import List, Tuple
+from ..data_models import AircraftState, Waypoint
+from ..constants import PlannerConstants, AircraftProfile
+from .coordinates import destination_point, calculate_bearing
 
-class AircraftPerformanceModel:
+def get_reachable_states(current_state: AircraftState, goal_waypoint: Waypoint) -> List[Tuple[AircraftState, float]]:
     """
-    Provides reachable states and performance data for a Cessna 172.
-    This is a simplified model for demonstration.
+    Generates a robust set of next possible aircraft states.
     """
-    def __init__(self):
-        # --- C172 Performance Parameters ---
-        self.glide_speed_kts: float = 68.0
-        self.best_glide_fpm: float = -700.0  # Vertical speed in feet per minute
-        self.turn_rate_deg_s: float = 3.0  # Standard rate turn
-        self.node_time_step_s: float = 20.0 # Time between A* nodes
+    # --- [FIX] Removed the incorrect ".PERFORMANCE" attribute from all calls ---
+    dist_per_step_nm = (AircraftProfile.GLIDE_SPEED_KTS * PlannerConstants.TIME_DELTA_SEC) / 3600.0
+    alt_loss_per_step_ft = (dist_per_step_nm * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
+    max_turn_per_step = PlannerConstants.DEFAULT_TURN_RATE_DEG_S * PlannerConstants.TIME_DELTA_SEC
 
-    def get_glide_ratio(self) -> float:
-        """Calculates the glide ratio (e.g., 9:1)."""
-        horizontal_speed_fps = self.glide_speed_kts * 1.68781
-        vertical_speed_fps = abs(self.best_glide_fpm / 60.0)
-        if vertical_speed_fps == 0:
-            return float('inf')
-        return horizontal_speed_fps / vertical_speed_fps
+    turn_angles = [0, -max_turn_per_step, max_turn_per_step]
+    
+    bearing_to_goal = calculate_bearing(current_state.lat, current_state.lon, goal_waypoint.lat, goal_waypoint.lon)
+    required_turn = bearing_to_goal - current_state.heading_deg
+    if required_turn > 180: required_turn -= 360
+    if required_turn < -180: required_turn += 360
+    
+    smart_turn = max(-max_turn_per_step, min(max_turn_per_step, required_turn))
+    turn_angles.append(smart_turn)
 
-    def get_reachable_states(self, current_state: AircraftState, emergency_profile: str) -> List[AircraftState]:
-        """
-        Generates a list of possible next states from the current state.
-        For a glide, this includes turning left, right, or continuing straight.
-        """
-        # TODO: This logic could be expanded to account for wind, different bank angles, etc.
-        neighbors = []
-        distance_per_step_nm = self.glide_speed_kts * (self.node_time_step_s / 3600.0)
-        altitude_loss_ft = abs(self.best_glide_fpm) * (self.node_time_step_s / 60.0)
-
-        # Define possible maneuvers (turn left, straight, turn right)
-        turn_angle_delta = self.turn_rate_deg_s * self.node_time_step_s
-        maneuvers = [-turn_angle_delta, 0, turn_angle_delta]
-
-        for angle_change in maneuvers:
-            new_heading = (current_state.heading_deg + angle_change) % 360
-            
-            # Calculate new position based on moving straight along the *average* heading
-            # This is a simplification of a curved path.
-            avg_heading = (current_state.heading_deg + new_heading) / 2
-            new_lat, new_lon = destination_point(
-                current_state.lat, current_state.lon, avg_heading, distance_per_step_nm
-            )
-            
-            new_alt = current_state.alt_ft - altitude_loss_ft
-
-            # Do not generate states below ground level (assuming 0 ft MSL for simplicity)
-            if new_alt > 0:
-                neighbors.append(AircraftState(
-                    lat=new_lat,
-                    lon=new_lon,
-                    alt_ft=new_alt,
-                    airspeed_kts=self.glide_speed_kts,
-                    heading_deg=new_heading
-                ))
-        return neighbors
+    reachable_states = []
+    for turn_deg in set(turn_angles):
+        new_heading = (current_state.heading_deg + turn_deg) % 360
+        new_lat, new_lon = destination_point(current_state.lat, current_state.lon, new_heading, dist_per_step_nm)
+        new_alt = current_state.alt_ft - alt_loss_per_step_ft
+        
+        new_state = AircraftState(
+            lat=new_lat, lon=new_lon, alt_ft=new_alt, heading_deg=new_heading,
+            airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS
+        )
+        reachable_states.append((new_state, turn_deg))
+        
+    return reachable_states

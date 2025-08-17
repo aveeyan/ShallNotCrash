@@ -1,60 +1,48 @@
 # shallnotcrash/path_planner/utils/touchdown.py
 """
-Selects the optimal touchdown point on a given landing site.
+Handles the selection of the optimal touchdown point and Final Approach Fix (FAF).
 """
-from typing import List
+import math
+from typing import Optional, Tuple
 from ..data_models import Waypoint
 from ...landing_site.data_models import LandingSite
+from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import destination_point
 
-# Define the conversion constant for clarity and precision
-METERS_TO_FEET = 3.28084
-
-class TouchdownSelector:
+def get_landing_sequence(site: LandingSite, wind_heading_deg: float) -> Optional[Tuple[Waypoint, Waypoint]]:
     """
-    Determines the best physical point to target for landing.
+    Calculates the optimal runway threshold and its FAF based on wind.
     """
-    def get_touchdown_points(self, site: LandingSite, wind_heading_deg: float) -> List[Waypoint]:
-        """
-        Selects an optimal touchdown point on the landing site. This method is now
-        resilient to elevation data being provided in feet or meters.
-        """
-        # --- PATCH: Robustly determine site elevation in feet ---
-        site_elevation_ft = 0.0
-        if hasattr(site, 'elevation_ft') and site.elevation_ft is not None:
-            site_elevation_ft = site.elevation_ft
-        elif hasattr(site, 'elevation_m') and site.elevation_m is not None:
-            # Convert from meters to feet if 'elevation_m' is provided
-            site_elevation_ft = site.elevation_m * METERS_TO_FEET
-            print(f"INFO: TouchdownSelector converted elevation from {site.elevation_m:.1f}m to {site_elevation_ft:.1f}ft.")
-        else:
-            print("WARNING: TouchdownSelector could not find elevation data for the site. Assuming 0 ft MSL.")
-        # --- END PATCH ---
+    site_elevation_ft = site.elevation_m * PlannerConstants.METERS_TO_FEET if site.elevation_m is not None else 0.0
+    glide_speed = AircraftProfile.GLIDE_SPEED_KTS
 
-        # Logic for non-runway sites (e.g., roads, fields)
-        if site.site_type != "RUNWAY":
-            # The target is the center of the site, using the correctly determined elevation.
-            return [Waypoint(
-                lat=site.lat,
-                lon=site.lon,
-                alt_ft=site_elevation_ft,
-                airspeed_kts=65, # Target approach speed
-                notes="FIELD_CENTER"
-            )]
+    if site.site_type != "RUNWAY" or site.orientation_degrees is None or site.length_m is None:
+        center_point = Waypoint(lat=site.lat, lon=site.lon, alt_ft=site_elevation_ft, airspeed_kts=glide_speed)
+        return (center_point, center_point)
 
-        # Logic for official runways
-        runway_bearing = site.bearing_deg
-        
-        # Touchdown point is typically ~1000ft from the threshold.
-        touchdown_dist_nm = 1000 / 6076.12
+    runway_orientation = site.orientation_degrees
+    reciprocal_orientation = (runway_orientation + 180) % 360
+    half_length_nm = (site.length_m / 2.0) / PlannerConstants.METERS_PER_NAUTICAL_MILE
+    
+    lat1, lon1 = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
+    lat2, lon2 = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)
 
-        # Calculate the touchdown point coordinates
-        td_lat, td_lon = destination_point(site.lat, site.lon, runway_bearing, touchdown_dist_nm)
+    wind_diff1 = abs(((reciprocal_orientation - wind_heading_deg + 180) % 360) - 180)
+    wind_diff2 = abs(((runway_orientation - wind_heading_deg + 180) % 360) - 180)
 
-        return [Waypoint(
-            lat=td_lat,
-            lon=td_lon,
-            alt_ft=site_elevation_ft, # Use the correctly determined elevation
-            airspeed_kts=65,
-            notes=f"TOUCHDOWN_ZONE_RWY_{site.designator}"
-        )]
+    if wind_diff1 <= wind_diff2:
+        best_lat, best_lon, approach_hdg = lat1, lon1, reciprocal_orientation
+    else:
+        best_lat, best_lon, approach_hdg = lat2, lon2, runway_orientation
+
+    threshold = Waypoint(lat=best_lat, lon=best_lon, alt_ft=site_elevation_ft, airspeed_kts=glide_speed, notes=f"THRESHOLD_HDG_{approach_hdg:.0f}")
+
+    faf_bearing = (approach_hdg - 180) % 360
+    faf_lat, faf_lon = destination_point(threshold.lat, threshold.lon, faf_bearing, PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM)
+    alt_gain_ft = math.tan(math.radians(PlannerConstants.FINAL_APPROACH_GLIDESLOPE_DEG)) * PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM * PlannerConstants.FEET_PER_NAUTICAL_MILE
+    faf_alt_ft = site_elevation_ft + alt_gain_ft
+
+    final_approach_fix = Waypoint(lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=glide_speed, notes=f"FAF_FOR_THR_{approach_hdg:.0f}")
+    
+    # --- [FIX] Removed the stray backslash at the end of the line ---
+    return (final_approach_fix, threshold)

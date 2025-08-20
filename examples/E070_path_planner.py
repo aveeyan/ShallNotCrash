@@ -1,34 +1,38 @@
 #!/usr/bin/env python3
 """
-Full System Operational Demonstration for ShallNotCrash (v9 - Function-Based API).
-This script is now corrected to use the function-based API from the touchdown
-utility, aligning it with the final, simplified module design.
+[FINAL ANALYSIS BUILD - V13]
+This version adds detailed printouts for every waypoint in a generated path,
+allowing for full analytical review of the final, ultra-smooth trajectory.
 """
 import sys
+import math
 from pathlib import Path
 from typing import Dict
 import plotly.graph_objects as go
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-# --- MODULAR IMPORTS (CORRECTED) ---
+# --- MODULAR IMPORTS ---
 from shallnotcrash.landing_site import LandingSiteFinder, SearchConfig
 from shallnotcrash.landing_site.visualization import MapVisualizer
 from shallnotcrash.path_planner import PathPlanner, FlightPath
 from shallnotcrash.path_planner.data_models import AircraftState
-# [FIXED] Import the 'touchdown' module itself to access its functions.
-from shallnotcrash.path_planner.utils import touchdown
 from shallnotcrash.emergency.constants import EmergencySeverity
 
-# --- HELPER FUNCTIONS (UNCHANGED LOGIC, TYPO FIXED) ---
+# --- HELPER FUNCTIONS ---
+def _get_cardinal_direction(heading_deg: float) -> str:
+    """Converts a heading in degrees to a cardinal direction string."""
+    dirs = ["North", "Northeast", "East", "Southeast", "South", "Southwest", "West", "Northwest"]
+    index = round(heading_deg / 45) % 8
+    return dirs[index]
+
 def _inject_simulated_elevation_data(search_results):
     for site in search_results.landing_sites:
-        if not hasattr(site, 'elevation_m') or site.elevation_m is None: site.elevation_m = 50.0
-    # [FIXED] Corrected a typo in the return variable name.
+        if not hasattr(site, 'elevation_m') or site.elevation_m is None or math.isnan(site.elevation_m):
+            site.elevation_m = 50.0
     return search_results
 
 def _generate_3d_visualization(start_state, search_results, flight_paths) -> go.Figure:
-    """Re-instated 3D plotting logic."""
     fig = go.Figure()
     fig.add_trace(go.Scatter3d(x=[start_state.lon], y=[start_state.lat], z=[start_state.alt_ft], mode='markers', marker=dict(size=10, color='green', symbol='circle'), name='Start Point'))
     for i, site in enumerate(search_results.landing_sites):
@@ -41,17 +45,18 @@ def _generate_3d_visualization(start_state, search_results, flight_paths) -> go.
     fig.update_layout(title='3D Emergency Glide Path Visualization', scene=dict(xaxis_title='Longitude', yaxis_title='Latitude', zaxis_title='Altitude (ft MSL)', aspectratio=dict(x=1, y=1, z=0.5)), margin=dict(r=20, l=10, b=10, t=40))
     return fig
 
-# --- MISSION PARAMETERS (UNCHANGED) ---
+# --- MISSION PARAMETERS ---
 SCENARIO_NAME = "Live Integrated Emergency Response: BIKF"
-AIRCRAFT_START_STATE = AircraftState(lat=64.05, lon=-22.58, alt_ft=3500.0, airspeed_kts=68.0, heading_deg=225.0)
+AIRCRAFT_START_STATE = AircraftState(lat=64.05, lon=-22.58, alt_ft=2000.0, airspeed_kts=68.0, heading_deg=225.0)
 SEARCH_LAT = 64.05; SEARCH_LON = -22.58
-EMERGENCY_SCENARIO = EmergencySeverity.CRITICAL; WIND_CONDITION_DEG = 200.0
 
 def run_full_system_test():
-    """Executes the full mission with the modular planner and re-anchoring protocol."""
-    print("Commencing Full System Demo (Function-Based API & Anchoring).")
+    """Executes the full mission with the fully encapsulated planner."""
+    print("Commencing Full System Demo (Fully Encapsulated Planner).")
     
-    # === PHASE 1 & 2: SITE ACQUISITION ===
+    initial_heading_cardinal = _get_cardinal_direction(AIRCRAFT_START_STATE.heading_deg)
+    print(f"Aircraft Initial State: {AIRCRAFT_START_STATE.alt_ft} ft, Heading {AIRCRAFT_START_STATE.heading_deg}° ({initial_heading_cardinal})")
+
     print("\n[PHASE 1 & 2] Acquiring and enhancing landing sites...")
     config = SearchConfig(search_radius_km=20, max_sites_return=5)
     finder = LandingSiteFinder(config=config)
@@ -60,52 +65,33 @@ def run_full_system_test():
     search_results = _inject_simulated_elevation_data(search_results)
     print("Site acquisition complete.")
 
-    # === PHASE 3: PATH GENERATION & HIGH-FIDELITY RE-ANCHORING ===
-    print("\n[PHASE 3] Generating and anchoring tactical glide paths...")
+    print("\n[PHASE 3] Generating tactical glide paths...")
     planner = PathPlanner()
-    # [REMOVED] The TouchdownSelector class is no longer used.
     all_flight_paths: Dict[int, FlightPath] = {}
 
     for i, site in enumerate(search_results.landing_sites):
-        print(f"  -> Planning for Option #{i+1} ({site.site_type.replace('_', ' ').title()})...")
+        site_label = getattr(site, 'designator', f"{site.site_type.replace('_', ' ').title()} #{i+1}")
+        print(f"  -> Planning for Option #{i+1} ({site_label})...")
         
-        # --- [FIXED] CRITICAL PROTOCOL STEP 1: Determine the precise anchor point ---
-        # We now call the get_landing_sequence function directly from the touchdown module.
-        landing_sequence = touchdown.get_landing_sequence(site, WIND_CONDITION_DEG)
-        if not landing_sequence:
-            print(f"     ...Skipped: No valid landing sequence found for site {i+1}.")
-            continue
-        
-        # The function returns (FAF, Threshold). The threshold is our anchor point.
-        _faf_waypoint, anchor_waypoint = landing_sequence
-
-        # --- Call the planner to get the smoothed path ---
         path = planner.generate_path(
-            current_state=AIRCRAFT_START_STATE, target_site=site,
-            emergency_type=EMERGENCY_SCENARIO.name, # Pass name of enum member
-            wind_heading_deg=WIND_CONDITION_DEG
+            current_state=AIRCRAFT_START_STATE,
+            target_site=site
         )
         
         if path and path.waypoints:
-            # --- CRITICAL PROTOCOL STEP 2: Re-anchor the smoothed path ---
-            path.waypoints[0].lat = AIRCRAFT_START_STATE.lat
-            path.waypoints[0].lon = AIRCRAFT_START_STATE.lon
-            path.waypoints[0].alt_ft = AIRCRAFT_START_STATE.alt_ft # Also anchor start altitude
-            
-            path.waypoints[-1].lat = anchor_waypoint.lat
-            path.waypoints[-1].lon = anchor_waypoint.lon
-            path.waypoints[-1].alt_ft = anchor_waypoint.alt_ft
-
-            print("     ...Path generated and re-anchored for precision.")
+            print(f"     ...Path generated successfully for {site_label}.")
             all_flight_paths[i] = path
+            
+            # [ADDED] Print all waypoints for detailed analysis.
+            print(f"     ...Detailed Waypoints for {site_label}:")
+            for j, wp in enumerate(path.waypoints):
+                print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
         else:
-            print(f"     ...Path generation failed for site {i+1}.")
+            print(f"     ...Path generation failed for site {site_label}.")
 
     if not all_flight_paths: print("\n! MISSION FAILURE: No paths could be generated."); return
 
-    # === PHASE 4: FULL-SPECTRUM VISUALIZATION ===
     print("\n[PHASE 4] Generating 2D and 3D mission visualizations...")
-    
     visualizer_2d = MapVisualizer()
     mission_map_2d = visualizer_2d.create_integrated_mission_map(
         start_state=AIRCRAFT_START_STATE, results=search_results, flight_paths=all_flight_paths
@@ -121,4 +107,3 @@ def run_full_system_test():
 
 if __name__ == "__main__":
     run_full_system_test()
-    

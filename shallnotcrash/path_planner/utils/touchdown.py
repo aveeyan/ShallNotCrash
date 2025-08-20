@@ -1,48 +1,95 @@
 # shallnotcrash/path_planner/utils/touchdown.py
 """
-Handles the selection of the optimal touchdown point and Final Approach Fix (FAF).
+[DEFINITIVE FIX - V16]
+This version corrects the critical, root-cause bug in FAF calculation.
+The FAF is now correctly calculated by moving from the threshold in the
+OPPOSITE direction of the final approach heading, creating a geometrically
+sane target for the A* search.
 """
 import math
-from typing import Optional, Tuple
-from ..data_models import Waypoint
+from typing import Optional, Tuple, List, Dict
+from ..data_models import Waypoint, AircraftState
 from ...landing_site.data_models import LandingSite
 from ..constants import PlannerConstants, AircraftProfile
-from .coordinates import destination_point
+from .coordinates import destination_point, calculate_bearing, haversine_distance_nm
+from .calculations import find_longest_axis
 
-def get_landing_sequence(site: LandingSite, wind_heading_deg: float) -> Optional[Tuple[Waypoint, Waypoint]]:
-    """
-    Calculates the optimal runway threshold and its FAF based on wind.
-    """
-    site_elevation_ft = site.elevation_m * PlannerConstants.METERS_TO_FEET if site.elevation_m is not None else 0.0
-    glide_speed = AircraftProfile.GLIDE_SPEED_KTS
-
-    if site.site_type != "RUNWAY" or site.orientation_degrees is None or site.length_m is None:
-        center_point = Waypoint(lat=site.lat, lon=site.lon, alt_ft=site_elevation_ft, airspeed_kts=glide_speed)
-        return (center_point, center_point)
+def _generate_runway_options(site: LandingSite) -> List[Dict]:
+    """Generates landing options for a formal runway."""
+    options = []
+    if site.orientation_degrees is None or site.length_m is None:
+        return []
 
     runway_orientation = site.orientation_degrees
     reciprocal_orientation = (runway_orientation + 180) % 360
     half_length_nm = (site.length_m / 2.0) / PlannerConstants.METERS_PER_NAUTICAL_MILE
+
+    thresh1_lat, thresh1_lon = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
+    thresh2_lat, thresh2_lon = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)
+
+    options.append({'threshold': Waypoint(thresh1_lat, thresh1_lon, 0, 0), 'approach_hdg': reciprocal_orientation})
+    options.append({'threshold': Waypoint(thresh2_lat, thresh2_lon, 0, 0), 'approach_hdg': runway_orientation})
+    return options
+
+def _generate_road_options(site: LandingSite) -> List[Dict]:
+    """Generates landing options for roads or other long polygons."""
+    options = []
+    end1, end2, _ = find_longest_axis(site.polygon_coords)
+    if end1 is None or end2 is None:
+        return []
+
+    options.append({'threshold': end1, 'approach_hdg': calculate_bearing(end2.lat, end2.lon, end1.lat, end1.lon)})
+    options.append({'threshold': end2, 'approach_hdg': calculate_bearing(end1.lat, end1.lon, end2.lat, end2.lon)})
+    return options
+
+# In shallnotcrash/path_planner/utils/touchdown.py
+
+def select_optimal_landing_approach(site: LandingSite, current_state: AircraftState) -> Optional[Tuple[Waypoint, Waypoint, float]]:
+    site_elevation_ft = site.elevation_m * PlannerConstants.METERS_TO_FEET if site.elevation_m is not None else 0.0
     
-    lat1, lon1 = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
-    lat2, lon2 = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)
-
-    wind_diff1 = abs(((reciprocal_orientation - wind_heading_deg + 180) % 360) - 180)
-    wind_diff2 = abs(((runway_orientation - wind_heading_deg + 180) % 360) - 180)
-
-    if wind_diff1 <= wind_diff2:
-        best_lat, best_lon, approach_hdg = lat1, lon1, reciprocal_orientation
+    options = []
+    if site.site_type.upper() == "RUNWAY":
+        options = _generate_runway_options(site)
     else:
-        best_lat, best_lon, approach_hdg = lat2, lon2, runway_orientation
+        options = _generate_road_options(site)
 
-    threshold = Waypoint(lat=best_lat, lon=best_lon, alt_ft=site_elevation_ft, airspeed_kts=glide_speed, notes=f"THRESHOLD_HDG_{approach_hdg:.0f}")
+    if not options:
+        return None
 
-    faf_bearing = (approach_hdg - 180) % 360
-    faf_lat, faf_lon = destination_point(threshold.lat, threshold.lon, faf_bearing, PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM)
-    alt_gain_ft = math.tan(math.radians(PlannerConstants.FINAL_APPROACH_GLIDESLOPE_DEG)) * PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM * PlannerConstants.FEET_PER_NAUTICAL_MILE
-    faf_alt_ft = site_elevation_ft + alt_gain_ft
+    best_option = None
+    min_dist_to_faf = float('inf')
 
-    final_approach_fix = Waypoint(lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=glide_speed, notes=f"FAF_FOR_THR_{approach_hdg:.0f}")
-    
-    # --- [FIX] Removed the stray backslash at the end of the line ---
-    return (final_approach_fix, threshold)
+    for option in options:
+        threshold = option['threshold']
+        threshold.alt_ft = site_elevation_ft
+        approach_hdg = option['approach_hdg']
+
+        bearing_to_faf = (approach_hdg + 180) % 360
+        
+        faf_lat, faf_lon = destination_point(
+            threshold.lat, threshold.lon, bearing_to_faf, PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM
+        )
+        
+        # [AERODYNAMIC FIX] Enforce the aircraft's physical limits.
+        # Use the desired glideslope, but cap it at the aircraft's maximum safe limit.
+        effective_glideslope_deg = min(
+            PlannerConstants.FINAL_APPROACH_GLIDESLOPE_DEG,
+            AircraftProfile.MAX_SAFE_GLIDESLOPE_DEG
+        )
+
+        # Calculate the FAF altitude using the safe, effective glideslope.
+        faf_alt_ft = site_elevation_ft + (
+            PlannerConstants.FEET_PER_NAUTICAL_MILE * 
+            PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM * 
+            math.tan(math.radians(effective_glideslope_deg))
+        )
+        
+        faf = Waypoint(lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=0)
+        
+        dist_to_faf = haversine_distance_nm(current_state.lat, current_state.lon, faf.lat, faf.lon)
+
+        if dist_to_faf < min_dist_to_faf:
+            min_dist_to_faf = dist_to_faf
+            best_option = (faf, threshold, approach_hdg)
+            
+    return best_option

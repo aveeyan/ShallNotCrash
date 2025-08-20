@@ -1,53 +1,52 @@
 # shallnotcrash/path_planner/utils/calculations.py
-"""
-Provides calculation functions for the A* search, including path distance
-and the crucial heuristic estimation.
-"""
-from typing import List
+from typing import List, Tuple
 from ..data_models import AircraftState, Waypoint
 from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import haversine_distance_nm, calculate_bearing
 
 def calculate_path_distance(waypoints: List[Waypoint]) -> float:
-    """Calculates the total length of a path in nautical miles."""
     distance = 0.0
     for i in range(len(waypoints) - 1):
-        wp1 = waypoints[i]
-        wp2 = waypoints[i+1]
-        distance += haversine_distance_nm(wp1.lat, wp1.lon, wp2.lat, wp2.lon)
+        distance += haversine_distance_nm(waypoints[i].lat, waypoints[i].lon, waypoints[i+1].lat, waypoints[i+1].lon)
     return distance
 
-def calculate_heuristic(state: AircraftState, goal: Waypoint) -> float:
+# In shallnotcrash/path_planner/utils/calculations.py
+
+def calculate_heuristic(state: AircraftState, goal: Waypoint, final_approach_hdg: float) -> float:
     """
-    Calculates the A* heuristic cost (h_cost) from a state to the goal.
+    [DEFINITIVE FIX - V26]
+    This heuristic is now mathematically "admissible," which is critical for A*
+    to find the true shortest path.
 
-    This is an "orientation-aware" heuristic. It combines two factors:
-    1.  The direct distance to the goal (a classic heuristic).
-    2.  A significant penalty for having a heading that points away from the goal.
+    The flaw in the previous version was adding a massive turn penalty, which
+    tricked the algorithm into preferring long, looping paths over direct turns.
 
-    This prevents the planner from exploring "spikes" or hairpin turns where
-    the aircraft is close to the goal but facing the wrong direction.
+    The correct heuristic is simply the best-case-scenario cost, which is the
+    straight-line distance to the goal. The cost of turning is correctly handled
+    by the `calculate_move_cost` function, not the heuristic.
     """
-    # --- Altitude Check: Is the goal reachable from this altitude? ---
-    min_alt_req = goal.alt_ft + (haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon) * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
-    if state.alt_ft < min_alt_req:
-        return float('inf') # This path is impossible.
-
-    # --- 1. Distance Component ---
+    # The heuristic is the straight-line (Haversine) distance. This is the
+    # most common and robust heuristic for geographic A* pathfinding.
     distance_to_goal_nm = haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon)
+    
+    return distance_to_goal_nm
 
-    # --- 2. Heading Penalty Component ---
-    bearing_to_goal_deg = calculate_bearing(state.lat, state.lon, goal.lat, goal.lon)
-    
-    # Calculate the absolute angular difference (0 to 180 degrees)
-    heading_error_deg = abs(((state.heading_deg - bearing_to_goal_deg + 180) % 360) - 180)
-    
-    # Normalize the error to a [0, 1] penalty factor
-    normalized_penalty = heading_error_deg / 180.0
-    
-    # Apply the penalty constant
-    heading_penalty = normalized_penalty * PlannerConstants.HEADING_MISMATCH_PENALTY
-
-    # --- 3. Final Heuristic ---
-    # The estimated cost is the distance plus the penalty for being poorly oriented.
-    return distance_to_goal_nm + heading_penalty
+def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Waypoint, Waypoint, float]:
+    max_dist_m = 0.0
+    best_pair = (None, None)
+    if len(polygon_coords) < 2:
+        lat, lon = polygon_coords[0] if polygon_coords else (0.0, 0.0)
+        wp = Waypoint(lat=lat, lon=lon, alt_ft=0, airspeed_kts=0)
+        return (wp, wp, 0.0)
+    for i in range(len(polygon_coords)):
+        for j in range(i + 1, len(polygon_coords)):
+            p1_lat, p1_lon = polygon_coords[i]
+            p2_lat, p2_lon = polygon_coords[j]
+            dist_nm = haversine_distance_nm(p1_lat, p1_lon, p2_lat, p2_lon)
+            dist_m = dist_nm * PlannerConstants.METERS_PER_NAUTICAL_MILE
+            if dist_m > max_dist_m:
+                max_dist_m = dist_m
+                wp1 = Waypoint(lat=p1_lat, lon=p1_lon, alt_ft=0, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
+                wp2 = Waypoint(lat=p2_lat, lon=p2_lon, alt_ft=0, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
+                best_pair = (wp1, wp2)
+    return (best_pair[0], best_pair[1], max_dist_m)

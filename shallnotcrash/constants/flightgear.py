@@ -126,4 +126,7 @@ class FGProps:
     #--------------------------
     # SIMULATION CONTROL
     #--------------------------
-    SIM_SPEEDUP = "/sim/speedup"
+    class SIMULATION:
+        PAUSE = "/sim/freeze/master"
+        FREEZE = PAUSE
+        SIM_SPEEDUP = "/sim/speedup"

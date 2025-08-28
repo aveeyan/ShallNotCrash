@@ -24,34 +24,42 @@ def _average_headings(h1_deg: float, h2_deg: float) -> float:
     
     return (math.degrees(avg_heading_rad) + 360) % 360
 
+# In path_planner/utils/flight_dynamics.py
+
 def get_reachable_states(current_state: AircraftState) -> List[Tuple[AircraftState, float]]:
-    """Generates the next possible states using corrected geometry."""
-    # Calculate movement parameters FIRST
+    """
+    [CORRECTED AERODYNAMIC MODEL - V12]
+    Generates next states with a more realistic physics model that penalizes
+    turns with increased altitude loss due to higher induced drag.
+    """
     dist_per_step_nm = (AircraftProfile.GLIDE_SPEED_KTS * PlannerConstants.TIME_DELTA_SEC) / 3600.0
-    alt_loss_per_step_ft = (dist_per_step_nm * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
+    base_alt_loss_ft = (dist_per_step_nm * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
     turn_angle_per_step = AircraftProfile.STANDARD_TURN_RATE_DEG_S * PlannerConstants.TIME_DELTA_SEC
-    
-    # DEBUG: Print the calculated values BEFORE using them
-    print(f"DEBUG Flight Dynamics:")
-    print(f"  Glide Speed: {AircraftProfile.GLIDE_SPEED_KTS} KTS")
-    print(f"  Time Delta: {PlannerConstants.TIME_DELTA_SEC} sec")
-    print(f"  Distance per step: {dist_per_step_nm:.3f} NM")
-    print(f"  Feet per NM: {PlannerConstants.FEET_PER_NAUTICAL_MILE}")
-    print(f"  Glide Ratio: {AircraftProfile.GLIDE_RATIO}")
-    print(f"  Altitude loss per step: {alt_loss_per_step_ft:.1f} ft")
-    print(f"  Current altitude: {current_state.alt_ft:.0f} ft")
-    print(f"  Turn angle per step: {turn_angle_per_step:.1f}°")
     
     reachable_states = []
     
+    # Define the possible maneuvers: straight, left turn, right turn
     for turn_deg in [0, -turn_angle_per_step, turn_angle_per_step]:
-        new_heading = (current_state.heading_deg + turn_deg) % 360
         
-        # Use the mathematically correct averaging function
+        # Apply the aerodynamic penalty for turning
+        if turn_deg == 0:
+            actual_alt_loss = base_alt_loss_ft
+        else:
+            actual_alt_loss = base_alt_loss_ft * AircraftProfile.TURN_DRAG_PENALTY_FACTOR
+
+        new_heading = (current_state.heading_deg + turn_deg) % 360
         avg_heading = _average_headings(current_state.heading_deg, new_heading)
         
         new_lat, new_lon = destination_point(current_state.lat, current_state.lon, avg_heading, dist_per_step_nm)
-        new_alt = current_state.alt_ft - alt_loss_per_step_ft
+        new_alt = current_state.alt_ft - actual_alt_loss
+        
+        # The aircraft cannot glide underground. Discard any states that result in this.
+        if new_alt < -500: # Allow a small negative buffer for landing site elevation variance
+            continue
+
+        # --- Optional: More informative debug output ---
+        print(f"DEBUG Flight Dynamics (Turn: {turn_deg:.0f}°):")
+        print(f"  Start Alt: {current_state.alt_ft:.0f} ft -> End Alt: {new_alt:.0f} ft (Loss: {actual_alt_loss:.1f} ft)")
         
         new_state = AircraftState(
             lat=new_lat, 

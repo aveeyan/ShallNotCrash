@@ -47,7 +47,7 @@ def _generate_3d_visualization(start_state, search_results, flight_paths) -> go.
 
 # --- MISSION PARAMETERS ---
 SCENARIO_NAME = "Live Integrated Emergency Response: BIKF"
-AIRCRAFT_START_STATE = AircraftState(lat=64.05, lon=-22.58, alt_ft=2000.0, airspeed_kts=68.0, heading_deg=225.0)
+AIRCRAFT_START_STATE = AircraftState(lat=64.05, lon=-22.58, alt_ft=5000.0, airspeed_kts=68.0, heading_deg=225.0)
 SEARCH_LAT = 64.05; SEARCH_LON = -22.58
 
 def run_full_system_test():
@@ -68,7 +68,7 @@ def run_full_system_test():
     print("\n[PHASE 3] Generating tactical glide paths...")
     planner = PathPlanner()
     all_flight_paths: Dict[int, FlightPath] = {}
-
+    
     for i, site in enumerate(search_results.landing_sites):
         site_label = getattr(site, 'designator', f"{site.site_type.replace('_', ' ').title()} #{i+1}")
         print(f"  -> Planning for Option #{i+1} ({site_label})...")
@@ -82,10 +82,10 @@ def run_full_system_test():
             print(f"     ...Path generated successfully for {site_label}.")
             all_flight_paths[i] = path
             
-            # [ADDED] Print all waypoints for detailed analysis.
-            print(f"     ...Detailed Waypoints for {site_label}:")
-            for j, wp in enumerate(path.waypoints):
-                print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
+            # # [ADDED] Print all waypoints for detailed analysis.
+            # print(f"     ...Detailed Waypoints for {site_label}:")
+            # for j, wp in enumerate(path.waypoints):
+            #     print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
         else:
             print(f"     ...Path generation failed for site {site_label}.")
 

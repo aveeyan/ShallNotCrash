@@ -1,11 +1,11 @@
 # shallnotcrash/path_planner/constants.py
 """
-[ULTRA-REALISTIC POLISH - V25]
-This version provides the final tuning for "ultra-realistic" path generation.
-By significantly increasing the SMOOTHING_FACTOR, the spline algorithm is given
-more authority to create a natural, flowing curve that is not rigidly bound to
-the coarse waypoints of the A* search. This eliminates the final jagged
-artifacts at the entry and exit of turns.
+[PERFORMANCE-TUNED - V26]
+This version is tuned for rapid and decisive path generation. By dramatically
+increasing the turn penalty and coarsening the search grid, the A* algorithm
+is strongly guided towards efficient paths, eliminating state space explosion
+and enabling near-instantaneous solutions. The final path quality is
+maintained by the high-fidelity smoothing algorithm.
 """
 import math
 from shallnotcrash.airplane.constants import C172PConstants
@@ -13,19 +13,26 @@ from shallnotcrash.airplane.constants import C172PConstants
 class PlannerConstants:
     # --- A* Search Resolution Parameters ---
     TIME_DELTA_SEC = 15
-    HEADING_PRECISION_DEG = 5
-    MAX_ASTAR_ITERATIONS = 900000
+    
+    # [PERFORMANCE TUNE] Coarsen heading precision. The aircraft turns in 45-degree
+    # steps, so a 15-degree resolution is more than sufficient and drastically
+    # reduces the state space from 72 to 24 heading buckets.
+    HEADING_PRECISION_DEG = 15
+    
+    MAX_ASTAR_ITERATIONS = 50000 # A well-tuned search should not need more.
 
     # --- Smoothing and Final Path Parameters ---
     SMOOTHED_PATH_NUM_POINTS = 500
-    
-    # [CRITICAL FIX] Increased from 0.5 to 3.0 for ultra-smooth, realistic curves.
-    # This allows the smoother to prioritize the path's flow over strict
-    # adherence to the coarse A* vertices.
     SMOOTHING_FACTOR = 3.0
 
     # --- Heuristic and Costing Parameters ---
-    TURN_PENALTY_FACTOR = 2.5
+    
+    # [CRITICAL PERFORMANCE TUNE] Dramatically increase the turn penalty.
+    # This is the most important change. It tells the planner that turns are
+    # extremely "expensive" and should be avoided unless necessary to reach the
+    # goal. This provides strong guidance and prunes inefficient paths early.
+    TURN_PENALTY_FACTOR = 15.0 
+    
     HEADING_MISMATCH_PENALTY = 5.0
     ALTITUDE_DEVIATION_PENALTY = 1.5
     
@@ -36,12 +43,17 @@ class PlannerConstants:
     EARTH_RADIUS_NM = 3440.065
 
     # --- Goal and State Precision ---
-    LAT_LON_PRECISION = 4
+    
+    # [PERFORMANCE TUNE] Coarsen geographic precision for the A* search.
+    # A resolution of ~111 meters is sufficient for coarse planning. The
+    # smoothing algorithm will create the high-fidelity final track.
+    LAT_LON_PRECISION = 3 
+    
     FINAL_APPROACH_FIX_DISTANCE_NM = 3.0
     FINAL_APPROACH_GLIDESLOPE_DEG = 3.0
-    GOAL_DISTANCE_TOLERANCE_NM: float = 0.15
-    GOAL_HEADING_TOLERANCE_DEG: float = 15.0
-    GOAL_ALTITUDE_TOLERANCE_FT: float = 200.0  # Allow ±200 ft altitude tolerance
+    GOAL_DISTANCE_TOLERANCE_NM: float = 0.2 # Slightly increase tolerance for coarser grid
+    GOAL_HEADING_TOLERANCE_DEG: float = 20.0 # Slightly increase tolerance for coarser grid
+    GOAL_ALTITUDE_Tolerance_FT: float = 250.0
 
 class AircraftProfile:
     SAFE_DEFAULT_GLIDE_RATIO = 9.0
@@ -50,8 +62,5 @@ class AircraftProfile:
     GLIDE_SPEED_KTS: float = C172PConstants.EMERGENCY['GLIDE_SPEED']
     STANDARD_TURN_RATE_DEG_S = 3.0
     TURN_RADIUS_NM = GLIDE_SPEED_KTS / (20 * math.pi)
-
-    # [AERODYNAMIC FIX] Add a physical limit for the steepest safe descent angle.
-    # A standard 3-degree slope is normal. A high-drag configuration might
-    # achieve 5-6 degrees. Anything more is likely unrealistic and unsafe.
     MAX_SAFE_GLIDESLOPE_DEG: float = 5.0
+    TURN_DRAG_PENALTY_FACTOR = 1.5

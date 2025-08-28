@@ -1,110 +1,158 @@
-# shallnotcrash/landing_site/runway_loader.py
+# shallnotcrash/path_planner/runway_loader.py
 """
-[REWORKED FOR PERFORMANCE]
-Loads runway data from OpenStreetMap, using a robust local caching
-mechanism to avoid slow network requests on every run.
+[REFACTORED - V4 - DEFINITIVE]
+Loads and processes runway data from FlightGear's apt.dat file.
+
+CRITICAL CHANGE: The class is renamed to 'AptDatLoader' to permanently
+resolve the name collision with the OSM loader in the 'landing_site' package.
+This class now correctly uses the canonical 'Runway' data model from this package.
 """
-import requests
-import json
-import sqlite3
-import time
 import os
-from typing import List, Dict, Any, Optional
+import gzip
+import shutil
+import tempfile
+import platform
+import logging
+import math
+from typing import List, Optional
 
-# --- Constants ---
-OVERPASS_URL = "http://overpass-api.de/api/interpreter"
-CACHE_DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'osm_cache.sqlite')
-CACHE_EXPIRY_SECONDS = 7 * 24 * 60 * 60  # Cache data for 7 days
+# --- Use the canonical Runway data model from this package ---
+from .data_models import Runway
 
-class RunwayLoader:
-    """Manages the fetching and caching of runway data from OSM."""
-
+# --- [THE DEFINITIVE FIX] Class renamed to be unique and descriptive. ---
+class AptDatLoader:
+    """Extracts runway data from FlightGear apt.dat files."""
+    
+    SURFACE_TYPES = {
+        1: "Asphalt", 2: "Concrete", 3: "Turf", 4: "Dirt", 5: "Gravel",
+        12: "Dry Lakebed", 13: "Water", 14: "Snow/Ice"
+    }
+    AIRPORT_CODES = {'1', '16', '17'}
+    RUNWAY_CODES = {'100', '101'}
+    
     def __init__(self):
-        self._initialize_cache()
+        self.apt_dat_path = self._find_apt_dat()
+        self.temp_dirs = []
+        if not logging.getLogger().hasHandlers():
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.info(f"AptDatLoader initialized. Path: {self.apt_dat_path}")
 
-    def _initialize_cache(self):
-        """Ensures the cache database and table exist."""
-        with sqlite3.connect(CACHE_DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS runway_cache (
-                    query_hash TEXT PRIMARY KEY,
-                    timestamp INTEGER,
-                    data TEXT
-                )
-            """)
-            conn.commit()
+    def load_runways_in_radius(self, center_lat: float, center_lon: float, radius_km: float) -> List[Runway]:
+        """Extracts all runways within a given radius of a center point."""
+        if not self.apt_dat_path:
+            logging.warning("apt.dat file not found. Cannot load runway data.")
+            return []
+        
+        try:
+            extracted_path = self._extract_gzip_file(self.apt_dat_path)
+            runways = self._parse_runways(extracted_path, center_lat, center_lon, radius_km)
+            logging.info(f"Found {len(runways)} runways in apt.dat within {radius_km}km radius.")
+            return runways
+        except Exception as e:
+            logging.error(f"Failed to load or parse runway data: {e}")
+            return []
+        finally:
+            self._cleanup()
 
-    def _is_cache_valid(self, query_hash: str) -> bool:
-        """Checks if a non-expired cache entry exists for the query."""
-        with sqlite3.connect(CACHE_DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT timestamp FROM runway_cache WHERE query_hash = ?", (query_hash,))
-            result = cursor.fetchone()
-            if result:
-                cache_time = result[0]
-                if (time.time() - cache_time) < CACHE_EXPIRY_SECONDS:
-                    return True
-        return False
+    def _parse_runways(self, file_path: str, center_lat: float, center_lon: float, radius_km: float) -> List[Runway]:
+        runways = []
+        current_airport = "N/A"
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                parts = line.strip().split()
+                if not parts: continue
+                
+                if parts[0] in self.AIRPORT_CODES and len(parts) >= 5:
+                    current_airport = parts[4]
+                
+                elif parts[0] in self.RUNWAY_CODES and current_airport:
+                    runway = self._parse_runway_line(parts, current_airport)
+                    if runway:
+                        dist_km = self._haversine_distance_km(center_lat, center_lon, runway.center_lat, runway.center_lon)
+                        if dist_km <= radius_km:
+                            runways.append(runway)
+        return runways
 
-    def _load_from_cache(self, query_hash: str) -> Optional[List[Dict[str, Any]]]:
-        """Loads runway data from the SQLite cache."""
-        print("...Loading runways from local cache (fast).")
-        with sqlite3.connect(CACHE_DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT data FROM runway_cache WHERE query_hash = ?", (query_hash,))
-            result = cursor.fetchone()
-            if result:
-                return json.loads(result[0])
+    def _parse_runway_line(self, parts: List[str], airport_code: str) -> Optional[Runway]:
+        try:
+            if len(parts) < 20: return None
+
+            width_ft = float(parts[1])
+            surface_code = int(parts[2])
+            runway_id1 = parts[8]
+            lat1 = float(parts[9])
+            lon1 = float(parts[10])
+            runway_id2 = parts[17]
+            lat2 = float(parts[18])
+            lon2 = float(parts[19])
+
+            if not (self._is_valid_coord(lat1, lon1) and self._is_valid_coord(lat2, lon2)): return None
+            if abs(lat1 - lat2) < 1e-6 and abs(lon1 - lon2) < 1e-6: return None
+
+            center_lat = (lat1 + lat2) / 2
+            center_lon = (lon1 + lon2) / 2
+            length_m = self._haversine_distance_km(lat1, lon1, lat2, lon2) * 1000
+            width_m = width_ft * 0.3048
+            bearing = self._calculate_bearing(lat1, lon1, lat2, lon2)
+            surface = self.SURFACE_TYPES.get(surface_code, "Unknown")
+            name = f"{airport_code} {runway_id1}/{runway_id2}"
+
+            return Runway(
+                name=name, start_lat=lat1, start_lon=lon1, end_lat=lat2, end_lon=lon2,
+                center_lat=center_lat, center_lon=center_lon, bearing_deg=bearing,
+                length_m=length_m, width_m=width_m, surface_type=surface
+            )
+        except (ValueError, IndexError):
+            return None
+
+    def _haversine_distance_km(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        R = 6371.0
+        lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
+        dlon = lon2_rad - lon1_rad
+        dlat = lat2_rad - lat1_rad
+        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c
+
+    def _calculate_bearing(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
+        dlon = lon2_rad - lon1_rad
+        y = math.sin(dlon) * math.cos(lat2_rad)
+        x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
+        return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+    def _is_valid_coord(self, lat: float, lon: float) -> bool:
+        return -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0
+    
+    def _find_apt_dat(self) -> Optional[str]:
+        system = platform.system()
+        paths = []
+        if system == "Linux":
+            paths = ["/usr/share/games/flightgear/Airports/apt.dat.gz", "/usr/share/flightgear/Airports/apt.dat.gz", os.path.expanduser("~/.fgfs/Airports/apt.dat.gz")]
+        elif system == "Windows":
+            paths = [os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "FlightGear", "data", "Airports", "apt.dat.gz")]
+        elif system == "Darwin":
+            paths = ["/Applications/FlightGear.app/Contents/Resources/data/Airports/apt.dat.gz"]
+        
+        for path in paths:
+            if os.path.exists(path):
+                return path
         return None
 
-    def _save_to_cache(self, query_hash: str, data: List[Dict[str, Any]]):
-        """Saves runway data to the SQLite cache."""
-        print("...Saving new runway data to local cache for future use.")
-        with sqlite3.connect(CACHE_DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT OR REPLACE INTO runway_cache (query_hash, timestamp, data) VALUES (?, ?, ?)",
-                (query_hash, int(time.time()), json.dumps(data))
-            )
-            conn.commit()
+    def _extract_gzip_file(self, gz_path: str) -> str:
+        temp_dir = tempfile.mkdtemp(prefix="shallnotcrash_")
+        self.temp_dirs.append(temp_dir)
+        extracted_path = os.path.join(temp_dir, "apt.dat")
+        with gzip.open(gz_path, 'rb') as f_in:
+            with open(extracted_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        return extracted_path
 
-    def _fetch_from_overpass_api(self, lat: float, lon: float, radius_m: int) -> List[Dict[str, Any]]:
-        """Performs the live network query to the Overpass API."""
-        print("...No valid cache found. Fetching live runway data from OSM (this may be slow)...")
-        
-        overpass_query = f"""
-        [out:json][timeout:60];
-        (
-          way["aeroway"="runway"](around:{radius_m},{lat},{lon});
-          relation["aeroway"="runway"](around:{radius_m},{lat},{lon});
-        );
-        out body;
-        >;
-        out skel qt;
-        """
-        try:
-            response = requests.get(OVERPASS_URL, params={'data': overpass_query})
-            response.raise_for_status()
-            return response.json().get('elements', [])
-        except requests.RequestException as e:
-            print(f"! NETWORK ERROR: Could not fetch runway data from Overpass API: {e}")
-            return []
+    def _cleanup(self):
+        for temp_dir in self.temp_dirs:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        self.temp_dirs.clear()
 
-    def get_runways(self, lat: float, lon: float, radius_km: float) -> List[Dict[str, Any]]:
-        """
-        Primary method to get runway data.
-        It uses the cache first and falls back to a live query if needed.
-        """
-        radius_m = radius_km * 1000
-        # Create a simple hash of the query parameters to use as a cache key
-        query_hash = f"runways_{lat:.4f}_{lon:.4f}_{radius_km}"
-
-        if self._is_cache_valid(query_hash):
-            return self._load_from_cache(query_hash)
-        else:
-            data = self._fetch_from_overpass_api(lat, lon, radius_m)
-            if data:
-                self._save_to_cache(query_hash, data)
-            return data
-    
+    def __del__(self):
+        self._cleanup()

@@ -45,3 +45,21 @@ class FlightPath:
     Represents the entire sequence of waypoints to be followed.
     """
     waypoints: List[Waypoint] = field(default_factory=list)
+
+@dataclass
+class TelemetryPacket:
+    """A data packet sent from the main sim loop to the visualizer."""
+    # Current State
+    current_lat: float
+    current_lon: float
+    current_alt: float
+    current_roll: float
+    
+    # Target State
+    target_roll: float
+    target_alt: float
+    
+    # Full Path for context
+    flight_path_lats: list
+    flight_path_lons: list
+    flight_path_alts: list

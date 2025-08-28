@@ -78,6 +78,7 @@ def run_full_system_test():
             target_site=site
         )
         
+        print("Path: ", path)
         if path and path.waypoints:
             print(f"     ...Path generated successfully for {site_label}.")
             all_flight_paths[i] = path

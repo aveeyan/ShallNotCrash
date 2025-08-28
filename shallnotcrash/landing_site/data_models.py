@@ -1,10 +1,29 @@
 # shallnotcrash/landing_site/data_models.py
 """
+[REFACTORED - V2]
 Defines the core data structures used throughout the landing site detection module.
-Ensuring these models are robust and consistent is critical for system stability.
+V2 adds the 'Runway' dataclass to serve as a structured intermediate object
+for data parsed from external sources, ensuring type safety and consistency.
 """
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
+
+# --- [NEW] Intermediate Data Structure for Parsed Runways ---
+@dataclass
+class Runway:
+    """
+    Represents a raw runway parsed from a data source like OSM. This is an
+    intermediate object used for evaluation before being converted into a
+    final LandingSite object. It holds the raw data in a structured format.
+    """
+    id: int
+    nodes: List[int]
+    tags: Dict[str, Any]
+    node_coords: List[Tuple[float, float]] = field(default_factory=list)
+    center_lat: Optional[float] = None
+    center_lon: Optional[float] = None
+
+# --- Core Operational Data Structures ---
 
 @dataclass
 class Airport:
@@ -28,8 +47,8 @@ class LandingSite:
     """Represents a single potential landing site with all its attributes."""
     lat: float
     lon: float
-    length_m: int
-    width_m: int
+    length_m: float
+    width_m: float
     site_type: str
     surface_type: str
     suitability_score: int
@@ -57,14 +76,9 @@ class SearchConfig:
 
 @dataclass
 class SearchResults:
-    """
-    The final output object containing all results and metadata from a search.
-    This has been enhanced to support better operational reporting.
-    """
+    """The final output object containing all results and metadata from a search."""
     origin_airport: Airport
     landing_sites: List[LandingSite]
     search_parameters: Dict[str, Any]
-    # --- STRATEGIC ENHANCEMENT ---
-    # Add fields for analysis and error reporting, as expected by the entry script.
     analysis_summary: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None

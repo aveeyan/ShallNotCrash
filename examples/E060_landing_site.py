@@ -46,6 +46,7 @@ def run_operational_test():
             print(f"! System Advisory: {results.error}")
         return
 
+    print(results)
     # --- Mission Success or Degraded Success ---
     print(f"\nSearch complete in {processing_time:.2f} seconds.")
     

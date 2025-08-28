@@ -28,7 +28,17 @@ class PlannerConstants:
     #
     # The iteration limit is also increased as a safeguard for these more
     # complex, high-energy scenarios.
+
+    # Earth radius in Nautical Miles
+    G_ACCEL_MPS2: float = 9.80665
+    EARTH_RADIUS_NM: float = 3440.065
+    # Earth radius in Meters
+    EARTH_RADIUS_M: float = 6371000.0
+    # Conversion factor from meters to nautical miles
+    METERS_TO_NM: float = 1 / 1852.0
+
     TIME_DELTA_SEC = 30
+    METERS_PER_SECOND_PER_KNOT: float = 0.514444
     HEADING_PRECISION_DEG = 15
     MAX_ASTAR_ITERATIONS = 75000 # Increased limit for complex problems
 
@@ -54,6 +64,8 @@ class PlannerConstants:
     GOAL_DISTANCE_TOLERANCE_NM: float = 0.2
     GOAL_HEADING_TOLERANCE_DEG: float = 20.0
     GOAL_ALTITUDE_Tolerance_FT: float = 250.0
+
+    WAYPOINT_CAPTURE_RADIUS_METERS = 75.0
     
 class AircraftProfile:
     # [DEFINITIVE CALIBRATION] The planner's performance is critically
@@ -78,3 +90,15 @@ class AircraftProfile:
     STANDARD_TURN_RATE_DEG_S = 3.0
     TURN_RADIUS_NM = GLIDE_SPEED_KTS / (20 * math.pi)
     TURN_DRAG_PENALTY_FACTOR = 1.5
+    STANDARD_BANK_ANGLE_DEG = 25.0
+
+class SiteAnalysis:
+    """
+    Defines constants for terrain and safety analysis.
+    This centralizes parameters previously scattered in the old system.
+    """
+    # URL for the elevation data API
+    ELEVATION_API_URL: str = "https://api.open-meteo.com/v1/elevation"
+
+    # Default maximum acceptable terrain slope in degrees
+    MAX_SLOPE_DEGREES: float = 5.0

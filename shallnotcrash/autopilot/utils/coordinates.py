@@ -1,43 +1,91 @@
-# In autopilot/utils/coordinates.py
+# shallnotcrash/path_planner/utils/coordinates.py
+"""
+A collection of geodetic calculation utilities for working with
+latitude and longitude coordinates.
+"""
 
 import math
 
-def get_bearing_and_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> tuple[float, float]:
+def get_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
-    Calculates the initial bearing and haversine distance between two points.
+    Calculates the initial bearing from point 1 to point 2.
 
     Args:
         lat1, lon1: Latitude and longitude of point 1 (in degrees).
         lat2, lon2: Latitude and longitude of point 2 (in degrees).
 
     Returns:
-        A tuple containing:
-        - Bearing (in degrees, from 0 to 360).
-        - Distance (in nautical miles).
+        float: The bearing in degrees (from 0 to 360).
     """
-    # Earth radius in nautical miles
-    R = 3440.065
-
-    # Convert degrees to radians
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
     lat2_rad = math.radians(lat2)
     lon2_rad = math.radians(lon2)
-
-    # --- Haversine formula for distance ---
+    
     dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
-    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    distance_nm = R * c
 
-    # --- Formula for bearing ---
     y = math.sin(dlon) * math.cos(lat2_rad)
     x = math.cos(lat1_rad) * math.sin(lat2_rad) - \
         math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
+    
     bearing_rad = math.atan2(y, x)
     
     # Convert bearing from radians to degrees and normalize
-    bearing_deg = (math.degrees(bearing_rad) + 360) % 360
+    return (math.degrees(bearing_rad) + 360) % 360
 
-    return bearing_deg, distance_nm
+def get_midpoint(lat1: float, lon1: float, lat2: float, lon2: float) -> tuple[float, float]:
+    """
+    Calculates the midpoint between two coordinates.
+
+    Args:
+        lat1, lon1: Latitude and longitude of point 1 (in degrees).
+        lat2, lon2: Latitude and longitude of point 2 (in degrees).
+
+    Returns:
+        A tuple containing (latitude, longitude) of the midpoint.
+    """
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    
+    dlon = math.radians(lon2 - lon1)
+
+    Bx = math.cos(lat2_rad) * math.cos(dlon)
+    By = math.cos(lat2_rad) * math.sin(dlon)
+
+    lat_mid_rad = math.atan2(
+        math.sin(lat1_rad) + math.sin(lat2_rad),
+        math.sqrt((math.cos(lat1_rad) + Bx)**2 + By**2)
+    )
+    lon_mid_rad = lon1_rad + math.atan2(By, math.cos(lat1_rad) + Bx)
+
+    return math.degrees(lat_mid_rad), math.degrees(lon_mid_rad)
+
+def get_destination_point(lat: float, lon: float, bearing_deg: float, distance_m: float) -> tuple[float, float]:
+    """
+    Calculates the destination point given a starting point, bearing, and distance.
+
+    Args:
+        lat, lon: Starting latitude and longitude (in degrees).
+        bearing_deg: Bearing (in degrees).
+        distance_m: Distance to travel (in meters).
+
+    Returns:
+        A tuple containing (destination_latitude, destination_longitude).
+    """
+    R = 6371000  # Earth radius in meters
+    lat_rad = math.radians(lat)
+    lon_rad = math.radians(lon)
+    bearing_rad = math.radians(bearing_deg)
+
+    lat_dest_rad = math.asin(
+        math.sin(lat_rad) * math.cos(distance_m / R) +
+        math.cos(lat_rad) * math.sin(distance_m / R) * math.cos(bearing_rad)
+    )
+
+    lon_dest_rad = lon_rad + math.atan2(
+        math.sin(bearing_rad) * math.sin(distance_m / R) * math.cos(lat_rad),
+        math.cos(distance_m / R) - math.sin(lat_rad) * math.sin(lat_dest_rad)
+    )
+
+    return math.degrees(lat_dest_rad), math.degrees(lon_dest_rad)

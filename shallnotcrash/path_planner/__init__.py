@@ -1,7 +1,18 @@
 # shallnotcrash/path_planner/__init__.py
 """
-The Path Planner module is responsible for generating a safe, flyable, and optimal
-flight path from the aircraft's current position to a selected landing site.
+Initializes the path_planner module, defining its public API.
+
+This file makes the core components of the planner directly accessible
+to client modules, simplifying imports and hiding the internal structure.
 """
-from .core import PathPlanner
-from .data_models import FlightPath, Waypoint, AircraftState
+# Core logic classes from core.py
+from .core import PathPlanner, GuidanceComputer
+
+# Public data models from data_models.py
+from .data_models import AircraftState, Runway, Waypoint, FlightPath
+
+# Expose key utility functions as part of the public API
+from .utils.coordinates import get_midpoint, get_bearing, get_destination_point, haversine_distance_nm
+
+# Expose the AptDatLoader for clients that need to use it directly
+from .runway_loader import AptDatLoader

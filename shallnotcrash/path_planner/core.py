@@ -62,23 +62,24 @@ class PathPlanner:
             emergency_profile="C172P_EMERGENCY_GLIDE"
         )
 
-    # shallnotcrash/path_planner/core.py
-
-# ... (keep all imports and the PathPlanner class definition) ...
-
-# Replace the _run_astar_search method in your PathPlanner class with this version:
-
-# In shallnotcrash/path_planner/core.py, inside the PathPlanner class
-
-# In shallnotcrash/path_planner/core.py, inside the PathPlanner class
+    # In shallnotcrash/path_planner/core.py, inside the PathPlanner class
 
     def _run_astar_search(self, start: AircraftState, goal: Waypoint, final_approach_hdg: float) -> Optional[List[Waypoint]]:
         """
-        [CORRECTED - V30]
-        Fixes a NameError typo introduced in the previous version. The logical
-        correction to 'came_from' is preserved.
+        [DEFINITIVE ARCHITECTURAL CORRECTION - V32]
+        This version resolves the "Tyranny of the Discrete Step" paradox.
+        The previous logic forced the planner to take fixed-size steps
+        (e.g., 0.54 NM), which were often larger than the goal tolerance
+        (0.2 NM). This made it physically impossible for the planner to land
+        inside the goal radius, causing it to exhaust all possibilities.
+
+        THE FIX: The planner now has a "Final Approach" mode. Before generating
+        its standard next steps, it checks if the goal is less than one
+        full step away. If so, it generates a single, special "neighbor"
+        that is precisely the goal itself. This allows the planner to take
+        a variable-length final step, finally enabling it to successfully
+        terminate the search.
         """
-        # ... (initialization code remains the same) ...
         total_dist_to_goal_nm = coordinates.haversine_distance_nm(start.lat, start.lon, goal.lat, goal.lon)
         total_alt_to_lose_ft = start.alt_ft - goal.alt_ft
         target_descent_rate_ft_per_nm = total_alt_to_lose_ft / total_dist_to_goal_nm if total_dist_to_goal_nm > 0.01 else 0
@@ -88,6 +89,9 @@ class PathPlanner:
         g_score = {self._get_key(start): 0}
         closed_set: Set[Tuple] = set()
         counter = 1
+
+        # Calculate the distance of one standard step
+        dist_per_step = (AircraftProfile.GLIDE_SPEED_KTS * (PlannerConstants.TIME_DELTA_SEC / 3600.0))
 
         while open_set:
             if counter > PlannerConstants.MAX_ASTAR_ITERATIONS:
@@ -104,19 +108,39 @@ class PathPlanner:
             if self._is_goal(current_node, goal, final_approach_hdg):
                 print(f"A* search succeeded after {counter} iterations")
                 return self._reconstruct_path(came_from, current_node)
-            
-            for neighbor_state, turn_deg in flight_dynamics.get_reachable_states(current_node):
+
+            # --- START OF THE ARCHITECTURAL FIX ---
+            dist_to_goal_from_current = coordinates.haversine_distance_nm(current_node.lat, current_node.lon, goal.lat, goal.lon)
+
+            # Check if the goal is within one step.
+            if dist_to_goal_from_current < dist_per_step:
+                # Create a single, special neighbor: the goal itself.
+                final_state = AircraftState(
+                    lat=goal.lat,
+                    lon=goal.lon,
+                    alt_ft=goal.alt_ft,
+                    heading_deg=final_approach_hdg, # Aim for the final heading
+                    airspeed_kts=current_node.airspeed_kts # Maintain speed
+                )
+                
+                # This is the only "neighbor" we will consider from this point.
+                # We force the planner to attempt its final approach.
+                neighbor_list = [(final_state, abs((final_state.heading_deg - current_node.heading_deg + 180) % 360 - 180))]
+            else:
+                # If we are not close enough for the final approach, generate standard steps.
+                neighbor_list = flight_dynamics.get_reachable_states(current_node)
+            # --- END OF THE ARCHITECTURAL FIX ---
+
+            for neighbor_state, turn_deg in neighbor_list:
                 neighbor_key = self._get_key(neighbor_state)
                 
                 if neighbor_key in closed_set:
                     continue
-                
-                dist_from_start_to_neighbor = coordinates.haversine_distance_nm(start.lat, start.lon, neighbor_state.lat, neighbor_state.lon)
-                ideal_alt_at_neighbor = start.alt_ft - (dist_from_start_to_neighbor * target_descent_rate_ft_per_nm)
-                altitude_surplus = neighbor_state.alt_ft - ideal_alt_at_neighbor
 
-                # [TYPO FIX] 'current_lon' has been corrected to 'current_node.lon'
                 dist_moved = coordinates.haversine_distance_nm(current_node.lat, current_node.lon, neighbor_state.lat, neighbor_state.lon)
+                ideal_alt_drop_for_step = dist_moved * target_descent_rate_ft_per_nm
+                ideal_alt_at_neighbor = current_node.alt_ft - ideal_alt_drop_for_step
+                altitude_surplus = neighbor_state.alt_ft - ideal_alt_at_neighbor
                 
                 move_cost = cost_functions.calculate_move_cost(
                     distance_nm=dist_moved,
@@ -127,7 +151,6 @@ class PathPlanner:
                 tentative_g_score = g_score.get(current_key, float('inf')) + move_cost
                 
                 if tentative_g_score < g_score.get(neighbor_key, float('inf')):
-                    # The correct logic from the previous fix is preserved.
                     came_from[neighbor_key] = current_node
                     g_score[neighbor_key] = tentative_g_score
                     
@@ -139,13 +162,27 @@ class PathPlanner:
                     
         print("! A* search exhausted all possibilities without finding a path")
         return None
-      
+          
     def _is_goal(self, s: AircraftState, g: Waypoint, final_approach_hdg: float) -> bool:
+        """
+        [CORRECTED - ARCHITECTURAL UNIFICATION]
+        This version resolves a critical "Logical Schism" bug. The previous
+        implementation used a hardcoded altitude tolerance (500.0 ft),
+        ignoring the value defined in PlannerConstants.
+
+        This fix removes the rogue "magic number" and correctly uses the
+        authoritative PlannerConstants.GOAL_ALTITUDE_Tolerance_FT. This
+        unifies the module's logic, ensuring the planner's goal condition
+        is consistent with the rest of its configuration.
+        """
         dist_ok = coordinates.haversine_distance_nm(s.lat, s.lon, g.lat, g.lon) < PlannerConstants.GOAL_DISTANCE_TOLERANCE_NM
+        
         hdg_diff = abs((s.heading_deg - final_approach_hdg + 180) % 360 - 180)
         hdg_ok = hdg_diff < PlannerConstants.GOAL_HEADING_TOLERANCE_DEG
-        # Altitude check - allow some tolerance
-        alt_ok = abs(s.alt_ft - g.alt_ft) < 500.0  # 500 ft tolerance for goal altitude
+        
+        # CORRECTED: Use the authoritative constant instead of a hardcoded value.
+        alt_ok = abs(s.alt_ft - g.alt_ft) < PlannerConstants.GOAL_ALTITUDE_Tolerance_FT
+        
         return dist_ok and hdg_ok and alt_ok
 
 # In shallnotcrash/path_planner/core.py

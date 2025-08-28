@@ -1,14 +1,13 @@
 # shallnotcrash/path_planner/utils/cost_functions.py
 """
-[REFINED - V27]
-The cost function is now aware of an ideal energy state. It penalizes moves
-that result in the aircraft being too high above a target glide path,
-forcing the A* search to favor longer, energy-dissipating paths over
-unrealistic dives.
+[DEFINITIVE CALIBRATION - V29]
+The cost function's core logic is corrected. It no longer penalizes the
+planner for being in a necessary high-energy state (above the ideal
+glideslope). Instead, it only penalizes energy-deficient states (below the
+glideslope). This resolves the conflict between the heuristic and the cost
+function, enabling successful long-range energy management.
 """
 from ..constants import PlannerConstants, AircraftProfile
-
-# In path_planner/utils/cost_functions.py
 
 def calculate_move_cost(
     distance_nm: float,
@@ -16,11 +15,16 @@ def calculate_move_cost(
     altitude_surplus_ft: float
 ) -> float:
     """
-    [ENERGY-BALANCED - V28]
-    Calculates the total cost of a move. This version penalizes deviations
-    both ABOVE and BELOW the ideal glideslope, forcing the planner to seek a
-    stable, balanced energy state and preventing it from exploring reckless,
-    energy-deficient dives.
+    [ENERGY-ALIGNED - V29]
+    Calculates the total cost of a move. This definitive version aligns the
+    cost function with the energy-aware heuristic.
+
+    - A surplus of altitude (positive surplus) is a resource and is NOT penalized.
+    - A deficit of altitude (negative surplus) is a critical, energy-deficient
+      state and IS penalized.
+
+    This allows the planner to freely explore the long, energy-dissipating
+    paths that the heuristic correctly identifies as necessary.
     """
     # 1. Base cost is the distance traveled.
     distance_cost = distance_nm
@@ -28,10 +32,10 @@ def calculate_move_cost(
     # 2. Penalty for turning.
     turn_penalty = (abs(turn_angle_deg) / 180.0) * PlannerConstants.TURN_PENALTY_FACTOR
 
-    # 3. Penalty for any deviation from the ideal glideslope (energy state).
-    # We take the absolute value of the surplus. Being too low is now just as
-    # costly as being too high. This provides a powerful guiding corridor for
-    # the A* search.
-    altitude_deviation_penalty = (abs(altitude_surplus_ft) / 100.0) * PlannerConstants.ALTITUDE_DEVIATION_PENALTY
+    # 3. Penalty ONLY for being BELOW the ideal glideslope (energy deficit).
+    altitude_deviation_penalty = 0.0
+    if altitude_surplus_ft < 0:
+        # Only penalize negative surplus (being too low).
+        altitude_deviation_penalty = (abs(altitude_surplus_ft) / 100.0) * PlannerConstants.ALTITUDE_DEVIATION_PENALTY
 
     return distance_cost + turn_penalty + altitude_deviation_penalty

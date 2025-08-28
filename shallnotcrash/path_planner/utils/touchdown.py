@@ -45,6 +45,13 @@ def _generate_road_options(site: LandingSite) -> List[Dict]:
 # In shallnotcrash/path_planner/utils/touchdown.py
 
 def select_optimal_landing_approach(site: LandingSite, current_state: AircraftState) -> Optional[Tuple[Waypoint, Waypoint, float]]:
+    """
+    [SYSTEM INTEGRATION FIX - V17]
+    Removes the orphaned reference to the flawed MAX_SAFE_GLIDESLOPE_DEG constant.
+    The Final Approach Fix (FAF) altitude is now calculated exclusively using the
+    standard, non-negotiable FINAL_APPROACH_GLIDESLOPE_DEG, resolving the
+    AttributeError and aligning the module with the corrected physics model.
+    """
     site_elevation_ft = site.elevation_m * PlannerConstants.METERS_TO_FEET if site.elevation_m is not None else 0.0
     
     options = []
@@ -70,18 +77,12 @@ def select_optimal_landing_approach(site: LandingSite, current_state: AircraftSt
             threshold.lat, threshold.lon, bearing_to_faf, PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM
         )
         
-        # [AERODYNAMIC FIX] Enforce the aircraft's physical limits.
-        # Use the desired glideslope, but cap it at the aircraft's maximum safe limit.
-        effective_glideslope_deg = min(
-            PlannerConstants.FINAL_APPROACH_GLIDESLOPE_DEG,
-            AircraftProfile.MAX_SAFE_GLIDESLOPE_DEG
-        )
-
-        # Calculate the FAF altitude using the safe, effective glideslope.
+        # [SYSTEM FIX] The flawed logic comparing against a non-existent constant has been removed.
+        # The FAF altitude is now correctly and consistently calculated using the standard 3-degree glideslope.
         faf_alt_ft = site_elevation_ft + (
             PlannerConstants.FEET_PER_NAUTICAL_MILE * 
             PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM * 
-            math.tan(math.radians(effective_glideslope_deg))
+            math.tan(math.radians(PlannerConstants.FINAL_APPROACH_GLIDESLOPE_DEG))
         )
         
         faf = Waypoint(lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=0)

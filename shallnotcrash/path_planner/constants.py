@@ -23,7 +23,7 @@ class PlannerConstants:
 
     # --- Smoothing and Final Path Parameters ---
     SMOOTHED_PATH_NUM_POINTS = 500
-    SMOOTHING_FACTOR = 3.0
+    SMOOTHING_FACTOR = 0.5
 
     # --- Heuristic and Costing Parameters ---
     
@@ -62,5 +62,5 @@ class AircraftProfile:
     GLIDE_SPEED_KTS: float = C172PConstants.EMERGENCY['GLIDE_SPEED']
     STANDARD_TURN_RATE_DEG_S = 3.0
     TURN_RADIUS_NM = GLIDE_SPEED_KTS / (20 * math.pi)
-    MAX_SAFE_GLIDESLOPE_DEG: float = 5.0
+    # MAX_SAFE_GLIDESLOPE_DEG: float = 5.0
     TURN_DRAG_PENALTY_FACTOR = 1.5

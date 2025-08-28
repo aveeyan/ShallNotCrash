@@ -5,33 +5,49 @@ from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import haversine_distance_nm, calculate_bearing
 
 def calculate_path_distance(waypoints: List[Waypoint]) -> float:
+    """
+    [RESTORED] Calculates the total geographic distance of a path.
+    This function is essential for analysis and was restored.
+    """
     distance = 0.0
     for i in range(len(waypoints) - 1):
         distance += haversine_distance_nm(waypoints[i].lat, waypoints[i].lon, waypoints[i+1].lat, waypoints[i+1].lon)
     return distance
 
-# In shallnotcrash/path_planner/utils/calculations.py
-
 def calculate_heuristic(state: AircraftState, goal: Waypoint, final_approach_hdg: float) -> float:
     """
-    [DEFINITIVE FIX - V26]
-    This heuristic is now mathematically "admissible," which is critical for A*
-    to find the true shortest path.
+    [INTEGRATED - ENERGY-AWARE HEURISTIC V27]
+    This definitive version makes the heuristic "energy-aware." It calculates
+    two costs and uses the more constraining of the two:
 
-    The flaw in the previous version was adding a massive turn penalty, which
-    tricked the algorithm into preferring long, looping paths over direct turns.
+    1. Geographic Cost: The straight-line distance to the target.
+    2. Energy Cost: The minimum horizontal distance the aircraft MUST travel
+       to safely descend from its current altitude to the goal altitude.
 
-    The correct heuristic is simply the best-case-scenario cost, which is the
-    straight-line distance to the goal. The cost of turning is correctly handled
-    by the `calculate_move_cost` function, not the heuristic.
+    This provides a much more accurate, physically-grounded estimate of the
+    true remaining path cost, enabling efficient long-range planning.
     """
-    # The heuristic is the straight-line (Haversine) distance. This is the
-    # most common and robust heuristic for geographic A* pathfinding.
+    # 1. Calculate the simple geographic distance cost.
     distance_to_goal_nm = haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon)
+
+    # 2. Calculate the energy-based distance cost.
+    altitude_to_lose_ft = state.alt_ft - goal.alt_ft
     
-    return distance_to_goal_nm
+    if altitude_to_lose_ft <= 0:
+        min_glide_dist_nm = 0.0
+    else:
+        # Minimum horizontal distance required to lose the surplus altitude.
+        min_glide_dist_ft = altitude_to_lose_ft * AircraftProfile.GLIDE_RATIO
+        min_glide_dist_nm = min_glide_dist_ft / PlannerConstants.FEET_PER_NAUTICAL_MILE
+    
+    # The heuristic is the more constraining of the two costs.
+    return max(distance_to_goal_nm, min_glide_dist_nm)
 
 def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Waypoint, Waypoint, float]:
+    """
+    [RESTORED] Finds the longest possible straight line within a polygon.
+    This function is critical for defining runway orientation and was restored.
+    """
     max_dist_m = 0.0
     best_pair = (None, None)
     if len(polygon_coords) < 2:

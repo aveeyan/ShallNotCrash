@@ -14,49 +14,40 @@ from typing import List
 from ..data_models import Waypoint
 from ..constants import PlannerConstants, AircraftProfile
 
+# In path_planner/utils/smoothing.py
+
 def smooth_path_3d(waypoints: List[Waypoint]) -> List[Waypoint]:
-    # A path with 0 or 1 point cannot be smoothed or interpolated.
+    """
+    [AERODYNAMICALLY CORRECTED - V17]
+    This version removes the artificial enforcement of start/end boundary
+    conditions, which created visual "kinks" or jagged edges. The spline is
+    now allowed to flow naturally from start to finish, relying on the
+    SMOOTHING_FACTOR to control its adherence to the coarse path.
+    """
     if len(waypoints) < 2:
         return waypoints
 
-    original_start_wp = waypoints[0]
-    original_end_wp = waypoints[-1]
-
     coords = np.array([(wp.lon, wp.lat, wp.alt_ft) for wp in waypoints])
-    
-    # Remove duplicate points, which are fatal to the spline algorithm,
-    # while preserving the original order of the unique points.
     unique_coords, indices = np.unique(coords, axis=0, return_index=True)
     
-    # Not enough unique points to form any kind of path.
     if len(unique_coords) < 2:
         return waypoints
 
-    # Sort the unique coordinates by their original appearance
     sorted_unique_coords = unique_coords[np.argsort(indices)]
     x, y, z = sorted_unique_coords[:, 0], sorted_unique_coords[:, 1], sorted_unique_coords[:, 2]
 
-    # Gracefully degrade the spline degree 'k' based on the number of available points.
-    # k must be less than the number of points.
-    # k=3: cubic (ideal), k=2: quadratic, k=1: linear.
     k = min(3, len(sorted_unique_coords) - 1)
 
-    # Parameterize the path based on the cumulative distance between points.
-    # This provides a better distribution for the spline parameter 'u'.
     diffs = np.diff(sorted_unique_coords, axis=0)
     segment_lengths = np.linalg.norm(diffs, axis=1)
     u = np.concatenate(([0], np.cumsum(segment_lengths)))
     
-    # If the total path length is zero (all points are identical), return the original path.
     if u[-1] == 0:
         return waypoints
     
     u_normalized = u / u[-1]
 
-    # Perform spline interpolation
     tck, _ = splprep([x, y, z], u=u_normalized, s=PlannerConstants.SMOOTHING_FACTOR, k=k)
-    
-    # Generate a new set of evenly spaced points along the smoothed spline.
     u_new_normalized = np.linspace(0, 1, PlannerConstants.SMOOTHED_PATH_NUM_POINTS)
     x_new, y_new, z_new = splev(u_new_normalized, tck)
 
@@ -65,9 +56,6 @@ def smooth_path_3d(waypoints: List[Waypoint]) -> List[Waypoint]:
         for lon, lat, alt in zip(x_new, y_new, z_new)
     ]
 
-    # Enforce the start and end points to guarantee perfect alignment with the coarse path.
-    if smoothed_path:
-        smoothed_path[0] = original_start_wp
-        smoothed_path[-1] = original_end_wp
-
+    # The blunt enforcement of boundary conditions has been removed.
+    # The smoothing factor is the sole authority on the path's final shape.
     return smoothed_path

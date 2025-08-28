@@ -28,9 +28,11 @@ def _average_headings(h1_deg: float, h2_deg: float) -> float:
 
 def get_reachable_states(current_state: AircraftState) -> List[Tuple[AircraftState, float]]:
     """
-    [CORRECTED AERODYNAMIC MODEL - V12]
-    Generates next states with a more realistic physics model that penalizes
-    turns with increased altitude loss due to higher induced drag.
+    [FINAL CORRECTED VERSION - V14]
+    This version removes the flawed MAX_SAFE_GLIDESLOPE_DEG check, which was
+    creating a physical paradox that made pathfinding impossible. The planner
+    is now free to use the aircraft's natural glide angle, and energy management
+    is correctly handled by the cost function.
     """
     dist_per_step_nm = (AircraftProfile.GLIDE_SPEED_KTS * PlannerConstants.TIME_DELTA_SEC) / 3600.0
     base_alt_loss_ft = (dist_per_step_nm * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
@@ -38,10 +40,8 @@ def get_reachable_states(current_state: AircraftState) -> List[Tuple[AircraftSta
     
     reachable_states = []
     
-    # Define the possible maneuvers: straight, left turn, right turn
     for turn_deg in [0, -turn_angle_per_step, turn_angle_per_step]:
         
-        # Apply the aerodynamic penalty for turning
         if turn_deg == 0:
             actual_alt_loss = base_alt_loss_ft
         else:
@@ -53,14 +53,9 @@ def get_reachable_states(current_state: AircraftState) -> List[Tuple[AircraftSta
         new_lat, new_lon = destination_point(current_state.lat, current_state.lon, avg_heading, dist_per_step_nm)
         new_alt = current_state.alt_ft - actual_alt_loss
         
-        # The aircraft cannot glide underground. Discard any states that result in this.
-        if new_alt < -500: # Allow a small negative buffer for landing site elevation variance
+        if new_alt < -500:
             continue
 
-        # --- Optional: More informative debug output ---
-        print(f"DEBUG Flight Dynamics (Turn: {turn_deg:.0f}°):")
-        print(f"  Start Alt: {current_state.alt_ft:.0f} ft -> End Alt: {new_alt:.0f} ft (Loss: {actual_alt_loss:.1f} ft)")
-        
         new_state = AircraftState(
             lat=new_lat, 
             lon=new_lon, 

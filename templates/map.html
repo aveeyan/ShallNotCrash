@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Landing System - BIKF</title>
+    <!-- Load Leaflet CSS and JS from CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" 
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" 
+          crossorigin=""/>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .header p { font-size: 1.1rem; opacity: 0.9; }
+        .dashboard { display: grid; grid-template-columns: 400px 1fr; gap: 20px; height: 80vh; }
+        .control-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); }
+        .status-section { margin-bottom: 30px; }
+        .status-section h3 { font-size: 1.2rem; font-weight: 600; color: #2d3748; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .status-item { background: #f8fafc; border-radius: 12px; padding: 15px; border-left: 4px solid #e2e8f0; transition: all 0.3s ease; }
+        .status-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .status-item.emergency { border-left-color: #f56565; background: #fed7d7; }
+        .status-item.connected { border-left-color: #48bb78; background: #c6f6d5; }
+        .status-label { font-size: 0.85rem; color: #718096; font-weight: 500; margin-bottom: 5px; }
+        .status-value { font-size: 1.1rem; font-weight: 600; color: #2d3748; }
+        .control-buttons { display: grid; gap: 12px; }
+        .btn { padding: 15px 20px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .btn:before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
+        .btn:hover:before { left: 100%; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+        .btn-success { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4); }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(72, 187, 120, 0.6); }
+        .btn-danger { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); color: white; box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4); animation: pulse-red 2s infinite; }
+        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 101, 101, 0.6); }
+        .btn-secondary { background: #e2e8f0; color: #4a5568; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn-secondary:hover { background: #cbd5e0; transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn:disabled:before { display: none; }
+        .btn-loading { position: relative; }
+        .btn-loading:after { content: ''; position: absolute; width: 16px; height: 16px; margin: auto; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 1s linear infinite; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+        @keyframes pulse-red { 0%, 100% { box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4); } 50% { box-shadow: 0 4px 25px rgba(245, 101, 101, 0.8); } }
+        .map-container { background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); position: relative; }
+        #map { height: 100%; width: 100%; border-radius: 20px; }
+        .plane-icon { transform-origin: center center; transition: transform 0.5s ease-out; }
+        .notification { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 12px; color: white; font-weight: 600; z-index: 10000; transform: translateX(400px); transition: transform 0.3s ease; }
+        .notification.show { transform: translateX(0); }
+        .notification.success { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); }
+        .notification.error { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); }
+        .status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+        .status-indicator.online { background: #48bb78; animation: pulse-green 2s infinite; }
+        .status-indicator.offline { background: #f56565; }
+        @keyframes pulse-green { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .emergency-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(245, 101, 101, 0.1); border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity 0.3s ease; }
+        .emergency-overlay.active { opacity: 1; animation: emergency-pulse 1s infinite; }
+        @keyframes emergency-pulse { 0%, 100% { background: rgba(245, 101, 101, 0.05); } 50% { background: rgba(245, 101, 101, 0.15); } }
+        @media (max-width: 1200px) { .dashboard { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; } .control-panel { margin-bottom: 20px; } #map { height: 60vh; } }
+        
+        /* Loading indicator styles */
+        .map-loading { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            background: #f8fafc; 
+            color: #718096; 
+            font-size: 1.1rem; 
+        }
+        .map-loading.hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛩️ Emergency Landing System</h1>
+            <p>BIKF - Keflavik International Airport Area</p>
+        </div>
+        <div class="dashboard">
+            <div class="control-panel">
+                <div class="status-section">
+                    <h3>🔧 System Status</h3>
+                    <div class="status-grid">
+                        <div class="status-item" id="fg-status-card">
+                            <div class="status-label">FlightGear</div>
+                            <div class="status-value" id="fg-status">
+                                <span class="status-indicator offline"></span>Not Connected
+                            </div>
+                        </div>
+                        <div class="status-item" id="flight-status-card">
+                            <div class="status-label">Flight Status</div>
+                            <div class="status-value" id="status-text">Normal</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <h3>📍 Aircraft Data</h3>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-label">Position</div>
+                            <div class="status-value" id="position">64.1306, -21.9406</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Altitude</div>
+                            <div class="status-value"><span id="altitude">2000</span> ft</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Heading</div>
+                            <div class="status-value"><span id="heading">0</span>°</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Airspeed</div>
+                            <div class="status-value"><span id="airspeed">80</span> kts</div>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Landing Site</div>
+                        <div class="status-value" id="site-name">None</div>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <h3>🎮 Controls</h3>
+                    <div class="control-buttons">
+                        <button class="btn btn-primary" id="start-fg-btn" onclick="startFlightGear()">🚁 Start FlightGear</button>
+                        <button class="btn btn-success" id="connect-fg-btn" onclick="connectFlightGear()">🔗 Connect to FlightGear</button>
+                        <button class="btn btn-danger" onclick="setEmergency(true)">🚨 Simulate Emergency</button>
+                        <button class="btn btn-secondary" onclick="setEmergency(false)">🔄 Reset System</button>
+                    </div>
+                </div>
+            </div>
+            <div class="map-container">
+                <div class="emergency-overlay" id="emergency-overlay"></div>
+                <div class="map-loading" id="map-loading">
+                    <div>Loading map...</div>
+                </div>
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" 
+            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" 
+            crossorigin=""></script>
+    
+    <script>
+        // Global variables
+        let map, planeMarker, pathPolyline, landingSiteMarker;
+        let emergencyActive = false;
+        let lastHeading = 0;
+        
+        // Data caching
+        let cachedPositionData = null;
+        let cachedLandingSiteData = null;
+        let cachedPathData = null;
+        let lastPositionUpdate = 0;
+        let lastLandingSiteUpdate = 0;
+        let lastPathUpdate = 0;
+        
+        const CACHE_DURATION_POSITION = 500; // 500ms cache for position
+        const CACHE_DURATION_LANDING_SITE = 2000; // 2s cache for landing site
+        const CACHE_DURATION_PATH = 3000; // 3s cache for path
+        
+        // Initialize the map when the page loads
+        function initializeMap() {
+            try {
+                console.log('Initializing map...');
+                
+                // Create map with fixed zoom level and disabled zoom controls
+                map = L.map('map', {
+                    zoomControl: false, // Disable zoom buttons
+                    doubleClickZoom: false, // Disable double-click zoom
+                    scrollWheelZoom: false, // Disable scroll wheel zoom
+                    touchZoom: false, // Disable touch zoom
+                    boxZoom: false, // Disable box zoom
+                    keyboard: false // Disable keyboard zoom
+                }).setView([64.1306, -21.9406], 12); // Fixed zoom level 12
+                
+                // Add tile layer
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 18,
+                    subdomains: ['a', 'b', 'c']
+                }).addTo(map);
+                
+                // Add airport marker
+                L.marker([64.1306, -21.9406]).addTo(map)
+                    .bindPopup('🛫 BIKF - Keflavik Int. Airport');
+                
+                // Create plane icon and marker - using a simple arrow/triangle pointing up
+                var planeIcon = L.divIcon({
+                    html: `<div style="
+                        width: 0; 
+                        height: 0; 
+                        border-left: 10px solid transparent; 
+                        border-right: 10px solid transparent; 
+                        border-bottom: 30px solid #ff4444;
+                        transform-origin: center bottom;
+                        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                    "></div>`,
+                    className: 'plane-icon',
+                    iconSize: [20, 30],
+                    iconAnchor: [10, 30]
+                });
+                
+                planeMarker = L.marker([64.1306, -21.9406], {icon: planeIcon})
+                    .addTo(map)
+                    .bindPopup('✈️ Aircraft');
+                
+                // Create path polyline
+                pathPolyline = L.polyline([], {
+                    color: '#667eea', 
+                    weight: 4, 
+                    opacity: 0.8
+                }).addTo(map);
+                
+                // Create landing site marker
+                var landingIcon = L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                landingSiteMarker = L.marker([0, 0], {icon: landingIcon})
+                    .addTo(map)
+                    .bindPopup('🎯 Landing Site');
+                
+                // Hide loading indicator
+                document.getElementById('map-loading').classList.add('hidden');
+                
+                console.log('Map initialized successfully');
+                
+                // Start updating position
+                updatePosition();
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                document.getElementById('map-loading').innerHTML = 'Error loading map: ' + error.message;
+            }
+        }
+
+        // Stable zoom function - only zoom when necessary
+        function performEmergencyZoom() {
+            const now = Date.now();
+            if (!isZoomStable || (now - lastZoomTime) < 5000) return; // Don't zoom more than once every 5 seconds
+            
+            if (planeMarker && landingSiteMarker && emergencyActive) {
+                const planePos = planeMarker.getLatLng();
+                const landingPos = landingSiteMarker.getLatLng();
+                
+                // Only zoom if landing site is actually set (not at 0,0)
+                if (landingPos.lat !== 0 && landingPos.lng !== 0) {
+                    const allFeatures = [planeMarker, landingSiteMarker];
+                    if (pathPolyline.getLatLngs().length > 0) {
+                        allFeatures.push(pathPolyline);
+                    }
+                    
+                    isZoomStable = false;
+                    const group = new L.featureGroup(allFeatures);
+                    map.fitBounds(group.getBounds().pad(0.2));
+                    lastZoomTime = now;
+                    
+                    // Re-enable zooming after animation completes
+                    setTimeout(() => { isZoomStable = true; }, 2000);
+                }
+            }
+        }
+
+        // Notification function
+        function showNotification(message, type = 'success') {
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
+        }
+
+        // Update plane rotation with smoothing
+        function updatePlaneRotation(heading) {
+            if (planeMarker && Math.abs(heading - lastHeading) > 2) { // Only update if heading changed significantly
+                const iconElement = planeMarker.getElement();
+                if (iconElement) {
+                    const triangle = iconElement.querySelector('div');
+                    if (triangle) {
+                        triangle.style.transform = `rotate(${heading}deg)`;
+                        triangle.style.transition = 'transform 0.5s ease-out';
+                        lastHeading = heading;
+                    }
+                }
+            }
+        }
+
+        // Generic API fetch function
+        async function apiFetch(url, options) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({
+                        message: 'Server returned an invalid error format.'
+                    }));
+                    throw new Error(errorData.message || `Request failed with status ${response.status}`);
+                }
+                return response.json();
+            } catch (error) {
+                if (error instanceof TypeError) {
+                    // Network error - server might not be running
+                    throw new Error('Cannot connect to server. Make sure the backend is running.');
+                }
+                throw error;
+            }
+        }
+
+        // Start FlightGear
+        function startFlightGear() {
+            const startBtn = document.getElementById('start-fg-btn');
+            if (startBtn.disabled) return;
+
+            startBtn.classList.add('btn-loading');
+            startBtn.disabled = true;
+            startBtn.innerHTML = '';
+
+            console.log("Requesting backend to start FlightGear...");
+            apiFetch('/start_fg', { method: 'POST' })
+                .then(data => {
+                    console.log(data.message);
+                    showNotification("FlightGear launch initiated. Auto-connecting...", 'success');
+                    startBtn.innerHTML = '🚁 FlightGear Starting';
+                    startBtn.classList.remove('btn-loading');
+                })
+                .catch(error => {
+                    console.error("Error starting FlightGear:", error);
+                    showNotification(error.message, 'error');
+                    startBtn.classList.remove('btn-loading');
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '🚁 Start FlightGear';
+                });
+        }
+
+        // Connect to FlightGear
+        function connectFlightGear() {
+            const connectBtn = document.getElementById('connect-fg-btn');
+            if (connectBtn.disabled) return;
+            
+            connectBtn.classList.add('btn-loading');
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '';
+
+            showNotification("Attempting to connect to FlightGear...", 'success');
+            apiFetch('/connect_fg')
+                .then(data => {
+                    console.log('FlightGear connection:', data.connected);
+                    const message = data.connected ? 
+                        "Successfully connected to FlightGear!" : 
+                        "Failed to connect. Make sure it's running.";
+                    showNotification(message, data.connected ? 'success' : 'error');
+                    updatePosition();
+                })
+                .catch(error => showNotification(`Connection error: ${error.message}`, 'error'))
+                .finally(() => {
+                    connectBtn.classList.remove('btn-loading');
+                    connectBtn.disabled = false;
+                    connectBtn.innerHTML = '🔗 Connect to FlightGear';
+                });
+        }
+
+        // Set emergency state
+        function setEmergency(state) {
+            apiFetch('/emergency/' + state)
+                .then(data => {
+                    console.log('Emergency state set to:', data.emergency);
+                    const message = data.emergency ? 
+                        "Emergency protocol activated! Finding landing site..." : 
+                        "Emergency reset. System back to normal.";
+                    const type = data.emergency ? 'error' : 'success';
+                    showNotification(message, type);
+                    
+                    if (data.emergency) {
+                        updateLandingSite();
+                        updatePath();
+                    } else {
+                        if (pathPolyline) pathPolyline.setLatLngs([]);
+                        if (landingSiteMarker) landingSiteMarker.setLatLng([0, 0]);
+                        document.getElementById('site-name').textContent = 'None';
+                    }
+                })
+                .catch(error => showNotification(`Error setting emergency state: ${error.message}`, 'error'));
+        }
+
+        // Update aircraft position with caching and centering
+        function updatePosition() {
+            if (!map || !planeMarker) return;
+            
+            // Check cache first
+            if (isCacheValid(lastPositionUpdate, CACHE_DURATION_POSITION) && cachedPositionData) {
+                return; // Use cached data, no need to update
+            }
+            
+            fetch('/position')
+                .then(r => r.json())
+                .then(data => {
+                    cachedPositionData = data;
+                    lastPositionUpdate = Date.now();
+                    
+                    if (!data.lat || !data.lng) return;
+                    
+                    // Update plane position and center map on it
+                    const newPosition = L.latLng(data.lat, data.lng);
+                    planeMarker.setLatLng(newPosition);
+                    map.panTo(newPosition); // Keep plane centered
+                    
+                    updatePlaneRotation(data.heading);
+                    
+                    document.getElementById('position').textContent = 
+                        `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
+                    document.getElementById('altitude').textContent = Math.round(data.alt);
+                    document.getElementById('heading').textContent = Math.round(data.heading);
+                    document.getElementById('airspeed').textContent = Math.round(data.airspeed);
+                    
+                    // Update FlightGear connection status
+                    const fgStatus = document.getElementById('fg-status');
+                    const fgCard = document.getElementById('fg-status-card');
+                    if (data.flightgear_connected) {
+                        fgStatus.innerHTML = '<span class="status-indicator online"></span>Connected';
+                        fgCard.classList.add('connected');
+                    } else {
+                        fgStatus.innerHTML = '<span class="status-indicator offline"></span>Not Connected';
+                        fgCard.classList.remove('connected');
+                    }
+                    
+                    // Update emergency status
+                    const statusText = document.getElementById('status-text');
+                    const flightCard = document.getElementById('flight-status-card');
+                    const emergencyOverlay = document.getElementById('emergency-overlay');
+                    
+                    emergencyActive = data.emergency;
+                    if (data.emergency) {
+                        statusText.textContent = '🚨 EMERGENCY';
+                        flightCard.classList.add('emergency');
+                        emergencyOverlay.classList.add('active');
+                    } else {
+                        statusText.textContent = '✅ Normal';
+                        flightCard.classList.remove('emergency');
+                        emergencyOverlay.classList.remove('active');
+                    }
+                })
+                .catch(error => {
+                    if (error instanceof TypeError) {
+                        console.log('Backend not available for position update');
+                    }
+                });
+        }
+
+        // Update landing site with caching
+        function updateLandingSite() {
+            if (!landingSiteMarker) return;
+            
+            // Check cache first
+            if (isCacheValid(lastLandingSiteUpdate, CACHE_DURATION_LANDING_SITE) && cachedLandingSiteData) {
+                return; // Use cached data
+            }
+            
+            fetch('/landing_site')
+                .then(r => r.json())
+                .then(data => {
+                    cachedLandingSiteData = data;
+                    lastLandingSiteUpdate = Date.now();
+                    
+                    document.getElementById('site-name').textContent = data.name || 'None';
+                    if (data.lat && data.lng) {
+                        landingSiteMarker.setLatLng([data.lat, data.lng])
+                            .setPopupContent('🎯 Landing Site: ' + data.name);
+                    }
+                })
+                .catch(error => console.log('Error updating landing site:', error));
+        }
+
+        // Update flight path with caching
+        function updatePath() {
+            if (!pathPolyline) return;
+            
+            // Check cache first
+            if (isCacheValid(lastPathUpdate, CACHE_DURATION_PATH) && cachedPathData) {
+                return; // Use cached data
+            }
+            
+            fetch('/path')
+                .then(r => r.json())
+                .then(data => {
+                    cachedPathData = data;
+                    lastPathUpdate = Date.now();
+                    
+                    if (data && data.length > 0) {
+                        pathPolyline.setLatLngs(data);
+                    } else {
+                        pathPolyline.setLatLngs([]);
+                    }
+                })
+                .catch(error => console.log('Error updating path:', error));
+        }
+
+        // Initialize everything when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking for Leaflet...');
+            
+            if (typeof L !== 'undefined') {
+                console.log('Leaflet is available, initializing map...');
+                initializeMap();
+            } else {
+                console.error('Leaflet is not loaded!');
+                document.getElementById('map-loading').innerHTML = 
+                    'Error: Leaflet library failed to load. Please check your internet connection.';
+            }
+        });
+
+        // Set up update intervals with different frequencies
+        setInterval(updatePosition, 250); // High frequency for position updates (4x per second)
+        setInterval(() => {
+            if (emergencyActive) {
+                updateLandingSite();
+                updatePath();
+            }
+        }, 1000); // Lower frequency for landing site and path (1x per second)
+    </script>
+</body>
+</html>

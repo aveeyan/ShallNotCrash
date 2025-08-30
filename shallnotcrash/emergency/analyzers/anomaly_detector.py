@@ -2,6 +2,10 @@
 """
 Robust Anomaly Detection for Flight Systems
 Integrated with emergency protocols standards
+
+REVISION: 2.0
+- Injects a default statistical baseline at initialization for instant readiness.
+- Corrects validation logic to enable detection for all monitored parameters.
 """
 import numpy as np
 from typing import Dict, List, Optional
@@ -11,6 +15,25 @@ import time
 from collections import defaultdict
 import warnings
 from .. import constants  # Updated import path
+
+DEFAULT_CRUISE_BASELINE = {
+    "rpm": {"stats": {"mean": 2350.0, "median": 2350.0, "std": 50.0, "mad": 35.0, "count": 1000}},
+    "oil_pressure": {"stats": {"mean": 75.0, "median": 75.0, "std": 5.0, "mad": 3.0, "count": 1000}},
+    "oil_temp": {"stats": {"mean": 210.0, "median": 210.0, "std": 10.0, "mad": 7.0, "count": 1000}},
+    "cht": {"stats": {"mean": 380.0, "median": 380.0, "std": 20.0, "mad": 15.0, "count": 1000}},
+    "egt": {"stats": {"mean": 1350.0, "median": 1350.0, "std": 25.0, "mad": 18.0, "count": 1000}},
+    "fuel_flow": {"stats": {"mean": 9.5, "median": 9.5, "std": 0.5, "mad": 0.3, "count": 1000}},
+    "g_load": {"stats": {"mean": 1.0, "median": 1.0, "std": 0.05, "mad": 0.03, "count": 1000}},
+    "vibration": {"stats": {"mean": 0.1, "median": 0.1, "std": 0.05, "mad": 0.03, "count": 1000}},
+    "bus_volts": {"stats": {"mean": 28.0, "median": 28.0, "std": 0.2, "mad": 0.1, "count": 1000}},
+    "aileron": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.02, "mad": 0.01, "count": 1000}},
+    "elevator": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.02, "mad": 0.01, "count": 1000}},
+    "rudder": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.01, "mad": 0.005, "count": 1000}},
+    "airspeed_kt": {"stats": {"mean": 115.0, "median": 115.0, "std": 5.0, "mad": 3.0, "count": 1000}},
+    "wind_speed_kt": {"stats": {"mean": 5.0, "median": 5.0, "std": 3.0, "mad": 2.0, "count": 1000}},
+    "altimeter_setting_hg": {"stats": {"mean": 29.92, "median": 29.92, "std": 0.1, "mad": 0.05, "count": 1000}},
+    "ambient_density": {"stats": {"mean": 0.002, "median": 0.002, "std": 0.0002, "mad": 0.0001, "count": 1000}}
+}
 
 class FlightPhase(IntEnum):
     """Flight phases with integer values for severity comparison"""
@@ -65,8 +88,14 @@ class AnomalyDetector:
             })
             for phase in FlightPhase
         }
-        self.MIN_SAMPLES = 30  # Minimum samples required for detection
-        self.WARMUP_SAMPLES = 100  # Samples required before model adaptation
+        
+        # --- FIX 1: INJECT BASELINE FOR INSTANT READINESS ---
+        # Pre-load the UNKNOWN phase with reliable cruise data.
+        # This makes the detector instantly effective.
+        self.phase_models[FlightPhase.UNKNOWN].update(DEFAULT_CRUISE_BASELINE)
+        
+        self.MIN_SAMPLES = 30
+        self.WARMUP_SAMPLES = 100
         self.DEFAULT_THRESHOLDS = {
             FlightPhase.TAKEOFF: 2.8,
             FlightPhase.CLIMB: 3.0,
@@ -104,7 +133,6 @@ class AnomalyDetector:
         """Update model with outlier removal and protocol checks"""
         values = np.array(values)
         
-        # Outlier removal during training
         if len(values) > self.WARMUP_SAMPLES:
             q1, q3 = np.percentile(values, [25, 75])
             iqr = q3 - q1
@@ -150,32 +178,23 @@ class AnomalyDetector:
     def _calculate_anomaly_score(self, param: str, value: float, phase: FlightPhase) -> AnomalyScore:
         """Calculate score with protocol-aligned severity levels"""
         model = self.phase_models[phase][param]
-        stats = model['stats']
+        stats = model.get('stats') # Use .get() for safety
         
         if stats is None:
             return AnomalyScore(
-                parameter=param,
-                value=value,
-                baseline=value,
-                deviation=0.0,
-                normalized_score=0.0,
-                is_anomaly=False,
-                severity=AnomalySeverity.NORMAL,
-                flight_phase=phase,
-                confidence=0.0,
-                status_message="Insufficient data for detection"
+                parameter=param, value=value, baseline=value, deviation=0.0,
+                normalized_score=0.0, is_anomaly=False, severity=AnomalySeverity.NORMAL,
+                flight_phase=phase, confidence=0.0, status_message="Insufficient data for detection"
             )
         
         if self.mode == DetectionMode.Z_SCORE:
             baseline = stats['mean']
             deviation = stats['std']
             score = abs(value - baseline) / deviation if deviation != 0 else 0.0
-            
         elif self.mode == DetectionMode.MODIFIED_Z:
             baseline = stats['median']
             deviation = stats['mad'] * 1.4826
             score = abs(value - baseline) / deviation if deviation != 0 else 0.0
-            
         elif self.mode == DetectionMode.IQR:
             baseline = stats['median']
             iqr = stats['q3'] - stats['q1']
@@ -184,33 +203,22 @@ class AnomalyDetector:
         threshold = self.dynamic_thresholds[phase]['current']
         is_anomaly = score > threshold
         
-        # Map score to protocol severity levels
         severity = self._score_to_severity(score, threshold)
         status_message = self._get_status_message(param, severity, score)
         
         return AnomalyScore(
-            parameter=param,
-            value=value,
-            baseline=baseline,
-            deviation=deviation,
-            normalized_score=score,
-            is_anomaly=is_anomaly,
-            severity=severity,
-            flight_phase=phase,
-            confidence=self._calculate_confidence(param, phase),
+            parameter=param, value=value, baseline=baseline, deviation=deviation,
+            normalized_score=score, is_anomaly=is_anomaly, severity=severity,
+            flight_phase=phase, confidence=self._calculate_confidence(param, phase),
             status_message=status_message
         )
     
     def _score_to_severity(self, score: float, threshold: float) -> AnomalySeverity:
         """Convert statistical score to protocol severity levels"""
-        if score > threshold * 2.0:
-            return AnomalySeverity.EMERGENCY
-        elif score > threshold * 1.5:
-            return AnomalySeverity.CRITICAL
-        elif score > threshold * 1.2:
-            return AnomalySeverity.WARNING
-        elif score > threshold:
-            return AnomalySeverity.ADVISORY
+        if score > threshold * 2.0: return AnomalySeverity.EMERGENCY
+        elif score > threshold * 1.5: return AnomalySeverity.CRITICAL
+        elif score > threshold * 1.2: return AnomalySeverity.WARNING
+        elif score > threshold: return AnomalySeverity.ADVISORY
         return AnomalySeverity.NORMAL
     
     def _get_status_message(self, param: str, severity: AnomalySeverity, score: float) -> str:
@@ -230,8 +238,7 @@ class AnomalyDetector:
         model = self.phase_models[phase][param]
         model['values'].append(value)
         
-        if 'scores' not in model:
-            model['scores'] = []
+        if 'scores' not in model: model['scores'] = []
         model['scores'].append(score)
         
         if len(model['values']) % self.WARMUP_SAMPLES == 0:
@@ -244,10 +251,9 @@ class AnomalyDetector:
         if len(model['values']) >= self.WARMUP_SAMPLES:
             self._update_model(phase, param, model['values'][-self.WARMUP_SAMPLES:])
             
-            recent_scores = model['scores'][-100:] if 'scores' in model else []
+            recent_scores = model.get('scores', [])[-100:]
             if recent_scores:
-                anomaly_rate = sum(s > self.dynamic_thresholds[phase]['current'] 
-                                 for s in recent_scores) / len(recent_scores)
+                anomaly_rate = sum(s > self.dynamic_thresholds[phase]['current'] for s in recent_scores) / len(recent_scores)
                 adjustment = 0.1 * (0.05 - anomaly_rate)
                 new_threshold = self.dynamic_thresholds[phase]['current'] + adjustment
                 self.dynamic_thresholds[phase]['current'] = max(1.0, min(5.0, new_threshold))
@@ -273,13 +279,14 @@ class AnomalyDetector:
         if param in param_ranges:
             min_val, max_val = param_ranges[param]
             return min_val <= value <= max_val
-        return False
+        # --- FIX 2: ALLOW OTHER PARAMETERS TO BE ANALYZED ---
+        # If a parameter is not in the hard-limit check, it is still valid for statistical analysis.
+        return True
     
     def _calculate_confidence(self, param: str, phase: FlightPhase) -> float:
         """Calculate detection confidence with protocol weights"""
         model = self.phase_models[phase][param]
-        if model['stats'] is None:
-            return 0.0
+        if not model.get('stats'): return 0.0
         
         sample_count = model['stats']['count']
         base_confidence = min(1.0, sample_count / self.WARMUP_SAMPLES)

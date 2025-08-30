@@ -1,122 +1,102 @@
 #!/usr/bin/env python3
 """
-Model Training and Persistence for the Emergency Pattern Recognizer.
-
-This script provides a clear and straightforward workflow for training the machine
-learning models used by the PatternRecognizer. It handles data generation,
-delegates training to the analyzer, and saves the resulting model artifacts.
+Emergency Detection Model Training Script (V2.1 - Unified Scaler)
 """
-import os
+import joblib
 import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 import logging
-from typing import List, Dict, Any
+import os
+import sys
 
-# --- Import the components we need ---
+# --- PATHING FORTIFICATION ---
+try:
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+except NameError:
+    project_root = os.path.abspath(os.path.join(os.getcwd()))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
 
-# We only need to import the analyzer that requires training.
-from .analyzers.pattern_recognizer import PATTERN_RECOGNIZER, EmergencyPattern
+from shallnotcrash.emergency.synthetic_data import generate_training_data
+from shallnotcrash.emergency.analyzers.pattern_recognizer import PatternRecognizer, EmergencyPattern
 
-# Import the data structures used for generating training data.
-from .analyzers.anomaly_detector import AnomalyScore, AnomalySeverity, FlightPhase
-
-logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Data Generation ---
-
-def generate_training_data(samples_per_pattern: int = 250) -> List[Dict[str, Any]]:
-    """
-    Generates realistic, synthetic training data for various emergency patterns.
-
-    This function simulates telemetry data with noise, drift, and pattern-specific
-    characteristics to create a robust training set.
-
-    Args:
-        samples_per_pattern: The number of data samples to generate for each pattern.
-
-    Returns:
-        A list of training samples, where each sample is a dictionary containing
-        telemetry, anomaly scores, correlation data, and a pattern label.
-    """
-    logger.info(f"Generating {samples_per_pattern * len(EmergencyPattern)} training samples...")
-    training_data = []
-    np.random.seed(42)  # for reproducibility
-
-    base_telemetry = {'rpm': 2350, 'oil_pressure': 65, 'fuel_flow': 12, 'vibration': 0.2, 'g_load': 1.0}
-
-    for pattern in EmergencyPattern:
-        for _ in range(samples_per_pattern):
-            telemetry = base_telemetry.copy()
-            anomaly_scores = {}
-            
-            # --- Apply pattern-specific characteristics ---
-            if pattern == EmergencyPattern.ENGINE_DEGRADATION:
-                telemetry['rpm'] -= np.random.uniform(100, 400)
-                telemetry['oil_pressure'] -= np.random.uniform(10, 25)
-                telemetry['vibration'] += np.random.uniform(0.5, 1.5)
-                anomaly_scores['rpm'] = AnomalyScore('rpm', telemetry['rpm'], 2400, 400, 2.5, True, AnomalySeverity.CRITICAL, FlightPhase.CRUISE)
-                anomaly_scores['oil_pressure'] = AnomalyScore('oil_pressure', telemetry['oil_pressure'], 70, 20, 2.0, True, AnomalySeverity.WARNING, FlightPhase.CRUISE)
-
-            elif pattern == EmergencyPattern.FUEL_LEAK:
-                telemetry['fuel_flow'] += np.random.uniform(3, 8) # Engine compensates for leak
-                # This would also manifest as a fuel quantity imbalance, a feature the recognizer can learn.
-                anomaly_scores['fuel_flow'] = AnomalyScore('fuel_flow', telemetry['fuel_flow'], 12, 5, 1.8, True, AnomalySeverity.WARNING, FlightPhase.CRUISE)
-
-            elif pattern == EmergencyPattern.STRUCTURAL_FATIGUE:
-                telemetry['vibration'] += np.random.uniform(1.0, 3.0)
-                telemetry['g_load'] += np.random.uniform(-0.3, 0.3) # Uncommanded pitch changes
-                anomaly_scores['vibration'] = AnomalyScore('vibration', telemetry['vibration'], 0.2, 2.0, 3.0, True, AnomalySeverity.EMERGENCY, FlightPhase.CRUISE)
-
-            # Add random noise to all parameters to make the model more robust
-            for key in telemetry:
-                telemetry[key] += np.random.normal(0, telemetry[key] * 0.05) # 5% noise
-
-            sample = {
-                'telemetry': telemetry,
-                'anomaly_scores': anomaly_scores,
-                'correlation_data': {'engine-fuel': np.random.rand()}, # Simplified for this example
-                'pattern_label': pattern.value
-            }
-            training_data.append(sample)
-    
-    np.random.shuffle(training_data)
-    logger.info("Training data generation complete.")
-    return training_data
-
-# --- Main Training Workflow ---
+# --- Configuration ---
+NUM_SAMPLES = 10000
+MODEL_DIR = "models"
+MODEL_FILENAME = os.path.join(MODEL_DIR, "c172p_emergency_model_v2.joblib")
+TRAINING_SEED = 42
 
 def main():
-    """
-    Executes the main training workflow:
-    1. Generates training data.
-    2. Calls the PatternRecognizer's training method.
-    3. Saves the trained model artifacts.
-    """
-    # Step 1: Generate or load your training data.
-    # The logic here can be as complex as needed, but the output format is standardized.
-    training_data = generate_training_data()
+    logging.info("Starting V2.1 (Unified Scaler) model training process...")
 
-    if not training_data:
-        logger.error("No training data was generated. Aborting.")
-        return
-
-    # Step 2: Train the models.
-    # We delegate the entire training process to the PatternRecognizer class.
-    # It already knows how to process the data and train its internal models.
-    logger.info("Starting model training...")
-    PATTERN_RECOGNIZER.train_models(training_data)
-    logger.info("Model training complete.")
-
-    # Step 3: Save the trained models.
-    # The path where the final model will be saved.
-    model_path = "models/c172p_emergency_model.joblib"
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    logging.info(f"Generating {NUM_SAMPLES} synthetic data samples...")
+    training_data = generate_training_data(NUM_SAMPLES, seed=TRAINING_SEED)
     
-    logger.info(f"Saving models to {model_path}...")
-    PATTERN_RECOGNIZER.save_models(model_path)
-    logger.info("Models saved successfully.")
-    print(f"\n✅ Training complete. Model saved to '{model_path}'.")
+    logging.info("Extracting features from raw data...")
+    feature_extractor = PatternRecognizer() 
+    features_list = [feature_extractor.extract_features(s['telemetry'], s['anomaly_scores']) for s in training_data]
+    labels = [s['pattern_label'] for s in training_data]
+        
+    X = np.array(features_list)
+    y = np.array(labels)
+    
+    # --- THE FIX: Create a single, unified feature space ---
+    # We split the data first to prevent data leakage from the test set into the scaler.
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    
+    # Create and fit ONE scaler on the entire training distribution.
+    unified_scaler = StandardScaler().fit(X_train)
+    X_train_scaled = unified_scaler.transform(X_train)
+    X_test_scaled = unified_scaler.transform(X_test)
 
+    # --- STAGE 1: TRAIN THE TRIAGE CLASSIFIER ---
+    logging.info("--- Training Stage 1: Triage Classifier ---")
+    y_train_triage = np.array([0 if label == EmergencyPattern.NORMAL.value else 1 for label in y_train])
+    y_test_triage = np.array([0 if label == EmergencyPattern.NORMAL.value else 1 for label in y_test])
+    
+    triage_classifier = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced').fit(X_train_scaled, y_train_triage)
+    y_pred_t = triage_classifier.predict(X_test_scaled)
+    logging.info("Triage Classifier Performance:")
+    print(classification_report(y_test_triage, y_pred_t, target_names=['NORMAL', 'ABNORMAL']))
 
-if __name__ == "__main__":
+    # --- STAGE 2: TRAIN THE SPECIALIST CLASSIFIER ---
+    logging.info("--- Training Stage 2: Specialist Classifier ---")
+    emergency_indices_train = np.where(y_train != EmergencyPattern.NORMAL.value)[0]
+    X_train_specialist = X_train_scaled[emergency_indices_train]
+    y_train_specialist = y_train[emergency_indices_train]
+    
+    specialist_classifier = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced').fit(X_train_specialist, y_train_specialist)
+
+    # Evaluate on the emergency-only portion of the test set
+    emergency_indices_test = np.where(y_test != EmergencyPattern.NORMAL.value)[0]
+    X_test_specialist = X_test_scaled[emergency_indices_test]
+    y_test_specialist = y_test[emergency_indices_test]
+    
+    y_pred_s = specialist_classifier.predict(X_test_specialist)
+    logging.info("Specialist Classifier Performance (on emergencies only):")
+    emergency_names = [p.name for p in EmergencyPattern if p != EmergencyPattern.NORMAL]
+    print(classification_report(y_test_specialist, y_pred_s, target_names=emergency_names, labels=[p.value for p in EmergencyPattern if p != EmergencyPattern.NORMAL], zero_division=0))
+
+    # --- Save the UNIFIED Model Artifact ---
+    logging.info(f"Saving the complete unified-scaler model artifact to {MODEL_FILENAME}")
+    model_artifact = {
+        'scaler': unified_scaler, # THE FIX: Save the single scaler
+        'triage_classifier': triage_classifier,
+        'specialist_classifier': specialist_classifier,
+        'model_version': '2.3-unified'
+    }
+    
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    joblib.dump(model_artifact, MODEL_FILENAME)
+    
+    logging.info("Training complete.")
+
+if __name__ == '__main__':
     main()

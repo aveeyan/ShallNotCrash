@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <title>Plane Map HUD</title>
+    <style>
+        #map { width: 100vw; height: 100vh; z-index: 0; }
+        .plane-emoji {
+            font-size: 2.5rem;
+            line-height: 1;
+            transform-origin: center center;
+            will-change: transform;
+            user-select: none;
+            pointer-events: none;
+        }
+        .stat-panel {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            background: rgba(30,40,60,0.92);
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 22px;
+            font-size: 1.1rem;
+            z-index: 1001;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-width: 220px;
+        }
+        .stat-label {
+            color: #a0aec0;
+            font-size: 0.97rem;
+            margin-right: 6px;
+        }
+        #start-fg {
+            margin-top: 10px;
+            padding: 7px 16px;
+            font-size: 1rem;
+            border-radius: 7px;
+            background: #667eea;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s, color 0.2s, opacity 0.2s;
+        }
+        #start-fg:disabled {
+            background: #a0aec0;
+            color: #eee;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="stat-panel">
+        <div><span class="stat-label">Heading:</span><span id="heading">-</span>°</div>
+        <div><span class="stat-label">Speed:</span><span id="speed">-</span> kts</div>
+        <div><span class="stat-label">Altitude:</span><span id="altitude">-</span> ft</div>
+        <div><span class="stat-label">Position:</span><span id="pos">-, -</span></div>
+        <div><span class="stat-label">FG:</span>
+            <span id="fgstatus" style="color:#f56565;">Offline</span>
+        </div>
+        <button id="start-fg">Start FlightGear</button>
+    </div>
+    <script>
+        // Correct BIKF coordinates
+        const BIKF = [63.9845, -22.6266];
+
+        // Initialize map at BIKF, but let autopan follow the plane
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView(BIKF, 15);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+        }).addTo(map);
+
+        // Custom plane marker using emoji (for the map)
+        const PlaneIcon = L.divIcon({
+            className: '',
+            html: '<div id="plane-marker" class="plane-emoji">✈️</div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // Place the marker at the initial position
+        let planeMarker = L.marker(BIKF, {icon: PlaneIcon}).addTo(map);
+
+        // For the trail
+        let trailCoords = [];
+        let trailLine = L.polyline(trailCoords, {color: '#48bb78', weight: 4, opacity: 0.7}).addTo(map);
+
+        function updateHUD() {
+            fetch('/position')
+                .then(r => r.json())
+                .then(data => {
+                    let heading = data.heading !== null ? Math.round(data.heading) : '-';
+                    let speed = data.speed !== null ? Math.round(data.speed) : '-';
+                    let altitude = data.altitude !== null ? Math.round(data.altitude) : '-';
+                    let lat = data.lat !== null ? data.lat.toFixed(4) : '-';
+                    let lng = data.lng !== null ? data.lng.toFixed(4) : '-';
+
+                    document.getElementById('heading').textContent = heading;
+                    document.getElementById('speed').textContent = speed;
+                    document.getElementById('altitude').textContent = altitude;
+                    document.getElementById('pos').textContent = lat + ', ' + lng;
+                    document.getElementById('fgstatus').textContent = data.fg_connected ? "Online" : "Offline";
+                    document.getElementById('fgstatus').style.color = data.fg_connected ? "#48bb78" : "#f56565";
+
+                    // --- Enable/disable Start FG button ---
+                    const startBtn = document.getElementById('start-fg');
+                    if (data.fg_connected) {
+                        startBtn.disabled = true;
+                        startBtn.textContent = "FlightGear Running";
+                    } else {
+                        startBtn.disabled = false;
+                        startBtn.textContent = "Start FlightGear";
+                    }
+
+                    // --- Update plane marker on map ---
+                    if (data.lat !== null && data.lng !== null) {
+                        const pos = [data.lat, data.lng];
+                        planeMarker.setLatLng(pos);
+
+                        // Auto-pan to plane on every update
+                        map.setView(pos, map.getZoom(), {animate: false});
+
+                        // Add to trail if new position and FG is connected
+                        if (data.fg_connected) {
+                            if (
+                                trailCoords.length === 0 ||
+                                trailCoords[trailCoords.length - 1][0] !== data.lat ||
+                                trailCoords[trailCoords.length - 1][1] !== data.lng
+                            ) {
+                                trailCoords.push([data.lat, data.lng]);
+                                trailLine.setLatLngs(trailCoords);
+                            }
+                        }
+
+                        // Rotate and tilt emoji marker on the map
+                        let markerDiv = document.getElementById('plane-marker');
+                        if (markerDiv) {
+                            // Map altitude to a pitch angle: 0 ft = 0deg, 10000 ft = -30deg (nose up)
+                            let pitch = 0;
+                            if (data.altitude !== null && !isNaN(data.altitude)) {
+                                pitch = Math.max(-30, Math.min(30, (data.altitude - 2000) / 10000 * -30));
+                            }
+                            let headingDeg = data.heading !== null ? data.heading : 0;
+                            markerDiv.style.transform =
+                                `rotate(${headingDeg}deg) rotateX(${pitch}deg)`;
+                        }
+                    }
+                });
+        }
+        setInterval(updateHUD, 500);
+        updateHUD();
+
+        document.getElementById('start-fg').onclick = function() {
+            fetch('/start_fg', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("FlightGear started and connected!");
+                    } else {
+                        alert("Failed to start FlightGear: " + (data.error || "Unknown error"));
+                    }
+                });
+        };
+    </script>
+</body>
+</html>

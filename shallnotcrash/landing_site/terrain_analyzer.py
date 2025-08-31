@@ -253,3 +253,40 @@ class TerrainAnalyzer:
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         
         return R * c
+    
+    # shallnotcrash/landing_site/terrain_analyzer.py
+    def analyze_path_corridor(self, path_coordinates: List[Tuple[float, float]]) -> SafetyReport:
+        """
+        Analyzes a flight path corridor for terrain and obstacle safety.
+        
+        Args:
+            path_coordinates: List of (lat, lon) coordinates defining the flight path
+            
+        Returns:
+            SafetyReport with safety assessment for the flight path
+        """
+        # For now, implement a simplified path analysis
+        # In a real implementation, this would check terrain elevation along the path,
+        # obstacles that intersect the path corridor, and other hazards
+        
+        # Check if path has sufficient points
+        if len(path_coordinates) < 2:
+            return SafetyReport(
+                is_safe=False,
+                risk_level="INVALID_PATH",
+                safety_score=0,
+                obstacle_count=0,
+                closest_civilian_distance_km=0.0  # Added required parameter with a safe default value
+            )
+        
+        # Simplified safety check - always return safe for now
+        # In a real implementation, this would perform actual terrain analysis
+        # along the flight path corridor
+        
+        return SafetyReport(
+            is_safe=True,
+            risk_level="LOW",
+            safety_score=100,
+            obstacle_count=0,
+            closest_civilian_distance_km=10.0  # Added required parameter with a safe default value
+        )

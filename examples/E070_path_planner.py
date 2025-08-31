@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from shallnotcrash.landing_site import LandingSiteFinder, SearchConfig
 from shallnotcrash.landing_site.visualization import MapVisualizer
 from shallnotcrash.path_planner import PathPlanner, FlightPath
-from shallnotcrash.path_planner.data_models import AircraftState
+from shallnotcrash.path_planner.data_models import AircraftState, Runway  # Added Runway import
 from shallnotcrash.emergency.constants import EmergencySeverity
 
 # --- HELPER FUNCTIONS ---
@@ -31,6 +31,53 @@ def _inject_simulated_elevation_data(search_results):
         if not hasattr(site, 'elevation_m') or site.elevation_m is None or math.isnan(site.elevation_m):
             site.elevation_m = 50.0
     return search_results
+
+def _calculate_runway_endpoints(lat, lon, bearing_deg, length_m):
+    """Calculate start and end coordinates of a runway based on center, bearing, and length."""
+    import math
+    
+    # Convert bearing to radians
+    bearing_rad = math.radians(bearing_deg)
+    
+    # Convert length from meters to degrees (approximate)
+    # 1 degree latitude ≈ 111,320 meters
+    # 1 degree longitude ≈ cos(latitude) * 111,320 meters
+    lat_offset = (length_m / 2 / 111320) * math.cos(bearing_rad)
+    lon_offset = (length_m / 2 / (111320 * math.cos(math.radians(lat)))) * math.sin(bearing_rad)
+    
+    # Calculate start and end points
+    start_lat = lat - lat_offset
+    start_lon = lon - lon_offset
+    end_lat = lat + lat_offset
+    end_lon = lon + lon_offset
+    
+    return start_lat, start_lon, end_lat, end_lon
+
+def _convert_landing_sites_to_runways(landing_sites):
+    """Convert LandingSite objects to Runway objects for the PathPlanner."""
+    runways = []
+    for site in landing_sites:
+        # Calculate runway endpoints based on center, orientation, and length
+        start_lat, start_lon, end_lat, end_lon = _calculate_runway_endpoints(
+            site.lat, site.lon, site.orientation_degrees, site.length_m
+        )
+        
+        # Create a Runway object from LandingSite data
+        runway = Runway(
+            name=f"{site.site_type}_{site.lat:.4f}_{site.lon:.4f}",
+            start_lat=start_lat,
+            start_lon=start_lon,
+            end_lat=end_lat,
+            end_lon=end_lon,
+            center_lat=site.lat,
+            center_lon=site.lon,
+            bearing_deg=site.orientation_degrees,  # Changed from heading_deg to bearing_deg
+            length_m=site.length_m,
+            width_m=site.width_m,
+            surface_type=site.surface_type
+        )
+        runways.append(runway)
+    return runways
 
 def _generate_3d_visualization(start_state, search_results, flight_paths) -> go.Figure:
     fig = go.Figure()
@@ -63,30 +110,31 @@ def run_full_system_test():
     search_results = finder.find_sites(lat=SEARCH_LAT, lon=SEARCH_LON)
     if not search_results.landing_sites: print("\n! MISSION FAILURE: No sites found."); return
     search_results = _inject_simulated_elevation_data(search_results)
+    
+    print(search_results)
     print("Site acquisition complete.")
 
     print("\n[PHASE 3] Generating tactical glide paths...")
-    planner = PathPlanner()
+    # Convert landing sites to runways for the PathPlanner
+    available_runways = _convert_landing_sites_to_runways(search_results.landing_sites)
+    planner = PathPlanner(available_runways=available_runways)
     all_flight_paths: Dict[int, FlightPath] = {}
     
     for i, site in enumerate(search_results.landing_sites):
         site_label = getattr(site, 'designator', f"{site.site_type.replace('_', ' ').title()} #{i+1}")
         print(f"  -> Planning for Option #{i+1} ({site_label})...")
         
-        path = planner.generate_path(
-            current_state=AIRCRAFT_START_STATE,
-            target_site=site
-        )
+        # The PathPlanner now selects the best runway internally, so we just call generate_path
+        path = planner.generate_path(aircraft_state=AIRCRAFT_START_STATE)
         
-        print("Path: ", path)
         if path and path.waypoints:
             print(f"     ...Path generated successfully for {site_label}.")
             all_flight_paths[i] = path
             
-            # # [ADDED] Print all waypoints for detailed analysis.
-            # print(f"     ...Detailed Waypoints for {site_label}:")
-            # for j, wp in enumerate(path.waypoints):
-            #     print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
+            # [ADDED] Print all waypoints for detailed analysis.
+            print(f"     ...Detailed Waypoints for {site_label}:")
+            for j, wp in enumerate(path.waypoints):
+                print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
         else:
             print(f"     ...Path generation failed for site {site_label}.")
 

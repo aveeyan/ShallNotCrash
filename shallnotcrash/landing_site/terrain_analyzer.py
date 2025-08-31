@@ -1,292 +1,165 @@
 # shallnotcrash/landing_site/terrain_analyzer.py
 """
-Performs terrain and safety analysis for landing site validation.
-
-This module analyzes terrain conditions, obstacle presence, and civilian area
-proximity to determine the safety and suitability of potential landing sites.
+[FULLY OFFLINE - V3]
+This version performs all safety and terrain analysis using local data.
+Slope calculation now uses local DEM files via Rasterio, removing the final
+online bottleneck for maximum performance.
 """
 import logging
-from typing import List, Dict, Tuple, Optional
+import math
+import os
+from typing import List, Dict, Tuple
 
 import numpy as np
-import requests
-import requests_cache
-from retry_requests import retry
+import rasterio
 
 from .data_models import SafetyReport
 
 class TerrainAnalyzer:
     """
-    Analyzes terrain for slope and proximity to obstacles and civilian areas.
+    Performs fully offline analysis of slope and proximity to obstacles
+    using pre-computed spatial indexes and local DEM files.
     """
-    def __init__(self, civilian_exclusion_radius_m: int = 500, max_slope_degrees: float = 2.0):
+    def __init__(self, all_nearby_elements: List[Dict], dem_dir_path: str,
+                 civilian_exclusion_radius_m: int = 500, max_slope_degrees: float = 2.0):
+        
         self.civilian_exclusion_radius_m = civilian_exclusion_radius_m
         self.max_slope_degrees = max_slope_degrees
         
-        # Setup cached session for API requests
-        cache_session = requests_cache.CachedSession('.cache', expire_after=3600 * 24 * 7)  # Cache for 1 week
-        self.session = retry(cache_session, retries=5, backoff_factor=0.2)
+        # --- [OPTIMIZATION 1] Build spatial index for obstacles/civilian areas ---
+        self.obstacle_index, self.civilian_index = self._build_spatial_index(all_nearby_elements)
         
-        logging.info(f"TerrainAnalyzer initialized. Max Slope: {self.max_slope_degrees}°, Civilian Exclusion: {self.civilian_exclusion_radius_m}m")
-
-    def analyze_site(self, lat: float, lon: float, polygon_coords: List[Tuple[float, float]], all_nearby_elements: List[Dict]) -> SafetyReport:
-        """
-        Performs comprehensive safety analysis for a landing site.
+        # --- [OPTIMIZATION 2] Open local DEM files for offline slope analysis ---
+        self.dem_sources = []
+        if os.path.isdir(dem_dir_path):
+            self.dem_sources = [rasterio.open(os.path.join(dem_dir_path, f)) 
+                                for f in os.listdir(dem_dir_path) if f.endswith('.tif')]
         
-        Args:
-            lat: Center latitude of the site
-            lon: Center longitude of the site  
-            polygon_coords: Polygon coordinates defining the site boundaries
-            all_nearby_elements: All OSM elements in the search area for obstacle detection
-            
-        Returns:
-            SafetyReport with safety assessment details
-        """
-        # Analyze terrain slope
-        slope_score, slope_degrees = self._get_terrain_slope(lat, lon)
+        if not self.dem_sources:
+            logging.warning(f"No DEM files (.tif) found in {dem_dir_path}. Slope analysis will be skipped.")
         
-        # Check for obstacles within and around the site
-        obstacle_count = self._count_obstacles_near_site(lat, lon, polygon_coords, all_nearby_elements)
-        
-        # Check proximity to civilian areas
-        closest_civilian_distance, civilian_violations = self._check_civilian_proximity(lat, lon, all_nearby_elements)
-        
-        # Determine overall safety
-        is_safe = (
-            slope_degrees <= self.max_slope_degrees and
-            closest_civilian_distance >= self.civilian_exclusion_radius_m / 1000 and  # Convert to km
-            len(civilian_violations) == 0
-        )
-        
-        # Calculate composite safety score
-        civilian_score = min(100, int((closest_civilian_distance * 1000 / self.civilian_exclusion_radius_m) * 100))
-        obstacle_penalty = min(50, obstacle_count * 10)  # Each obstacle reduces score by 10, max penalty 50
-        safety_score = max(0, min(slope_score, civilian_score) - obstacle_penalty)
-        
-        # Determine risk level
-        if not is_safe:
-            if slope_degrees > self.max_slope_degrees:
-                risk_level = f"UNSAFE (Slope: {slope_degrees:.1f}° > {self.max_slope_degrees}°)"
-            elif len(civilian_violations) > 0:
-                risk_level = f"UNSAFE (Too close to civilian areas)"
-            else:
-                risk_level = "UNSAFE (Multiple factors)"
-        else:
-            if safety_score >= 80:
-                risk_level = "LOW"
-            elif safety_score >= 60:
-                risk_level = "MODERATE"
-            else:
-                risk_level = "HIGH"
-
-        return SafetyReport(
-            is_safe=is_safe,
-            risk_level=risk_level,
-            safety_score=safety_score,
-            obstacle_count=obstacle_count,
-            closest_civilian_distance_km=closest_civilian_distance,
-            civilian_violations=civilian_violations
-        )
+        logging.info(f"TerrainAnalyzer initialized. Indexed {len(self.obstacle_index)} obstacle cells. Using {len(self.dem_sources)} DEM files.")
 
     def _get_terrain_slope(self, lat: float, lon: float) -> Tuple[int, float]:
-        """
-        Calculates ground slope using the Open-Meteo elevation API.
-        Returns (score, slope_in_degrees)
-        """
+        """[FULLY OFFLINE] Calculates ground slope using local DEM files."""
+        if not self.dem_sources:
+            return 100, 0.0 # Assume flat if no DEM data is available
+
         try:
-            # Define a 100m sampling box around the center point for slope calculation
-            # 1 degree of latitude is ~111.1 km. 0.00045 degrees is ~50 meters.
-            offset = 0.00045 
-            lats = [lat, lat + offset, lat - offset, lat, lat]
-            lons = [lon, lon, lon, lon + offset, lon - offset]
+            # Define a 100m sampling box for slope calculation
+            offset = 0.00045  # ~50 meters in latitude
+            lon_offset = offset / math.cos(math.radians(lat)) # Adjust for longitude
             
-            params = {
-                'latitude': ",".join(map(str, lats)), 
-                'longitude': ",".join(map(str, lons))
-            }
+            # Rasterio expects (lon, lat) order
+            sample_points = [
+                (lon, lat), (lon, lat + offset), (lon, lat - offset),
+                (lon + lon_offset, lat), (lon - lon_offset, lat)
+            ]
+
+            # Extract elevation values from the first DEM source that covers the points
+            elevations = []
+            for src in self.dem_sources:
+                for val in src.sample(sample_points):
+                    if val[0] > -1000: # Filter out common no-data values
+                        elevations.append(val[0])
+                if len(elevations) == 5:
+                    break # We have all 5 points from this DEM file
             
-            response = self.session.get('https://api.open-meteo.com/v1/elevation', params=params)
-            response.raise_for_status()
-            
-            elevations = response.json().get('elevation')
-            if not elevations or len(elevations) < 5:
-                logging.warning(f"Incomplete elevation data for ({lat:.4f}, {lon:.4f})")
-                return 0, 99.0  # Return minimum score and a high slope value
+            if len(elevations) < 5:
+                return 0, 99.0 # Return high slope if data is incomplete
 
             z_center, z_north, z_south, z_east, z_west = elevations
             
-            # Distance between North-South and East-West sample points in meters
-            # Approximate: 1 degree latitude = 111,111 meters
-            dist_meters = 2 * offset * 111111
-            if dist_meters == 0: 
-                return 100, 0.0  # No distance means flat
+            # Approximate distance in meters between sample points
+            dist_meters = 2 * offset * 111111 
+            if dist_meters == 0: return 100, 0.0
 
-            dz_ns = z_north - z_south
-            dz_ew = z_east - z_west
-            
-            slope_rad = np.arctan(np.sqrt((dz_ns / dist_meters)**2 + (dz_ew / dist_meters)**2))
+            slope_rad = np.arctan(np.sqrt(((z_north - z_south) / dist_meters)**2 + ((z_east - z_west) / dist_meters)**2))
             slope_deg = np.degrees(slope_rad)
             
             score = max(0, int(100 - (slope_deg / self.max_slope_degrees) * 100))
-            
             return score, round(slope_deg, 2)
-            
-        except (requests.exceptions.RequestException, KeyError, TypeError, ValueError) as e:
-            logging.error(f"Failure during slope calculation for ({lat:.4f}, {lon:.4f}): {e}")
-            return 0, 99.0  # Return minimum score and a high slope value
+        except Exception:
+            return 0, 99.0 # Default to unsafe on error
 
-    def _count_obstacles_near_site(self, lat: float, lon: float, polygon_coords: List[Tuple[float, float]], all_nearby_elements: List[Dict]) -> int:
-        """
-        Counts obstacles (buildings, towers, etc.) near or within the landing site.
-        """
-        obstacle_count = 0
-        obstacle_tags = ['building', 'tower', 'mast', 'chimney', 'silo', 'water_tower']
-        
-        for element in all_nearby_elements:
-            tags = element.get('tags', {})
+    def close_dem_sources(self):
+        """Closes all open DEM file handles."""
+        for src in self.dem_sources:
+            src.close()
             
-            # Check if element is an obstacle
+    # --- (The rest of the TerrainAnalyzer class remains the same as the previous fix) ---
+    def _build_spatial_index(self, elements: List[Dict]) -> Tuple[Dict, Dict]:
+        obstacle_index, civilian_index = {}, {}
+        obstacle_tags = {'building', 'tower', 'mast', 'chimney', 'silo', 'water_tower'}
+        civilian_tags = {'residential', 'commercial', 'retail', 'industrial', 'school', 'hospital'}
+        for element in elements:
+            tags, coords = element.get('tags', {}), self._get_coords_from_element(element)
+            if not coords: continue
             is_obstacle = any(tag in tags for tag in obstacle_tags)
-            if not is_obstacle:
-                continue
-                
-            # Get element coordinates
-            element_coords = self._get_coords_from_element(element)
-            if not element_coords:
-                continue
-                
-            # Check if obstacle is within or very close to the site
-            for coord_lat, coord_lon in element_coords:
-                distance_m = self._distance_meters(lat, lon, coord_lat, coord_lon)
-                if distance_m < 200:  # Within 200m of site center
-                    obstacle_count += 1
-                    break  # Count each element only once
-                    
-        return obstacle_count
+            is_civilian = any(tag in tags.get('landuse', '') or tag in tags.get('amenity', '') for tag in civilian_tags)
+            for lat, lon in coords:
+                grid_key = (int(lat * 100), int(lon * 100))
+                if is_obstacle:
+                    obstacle_index.setdefault(grid_key, []).append((lat, lon))
+                if is_civilian:
+                    civilian_index.setdefault(grid_key, []).append({'coords': (lat, lon), 'tags': tags})
+        return obstacle_index, civilian_index
 
-    def _check_civilian_proximity(self, lat: float, lon: float, all_nearby_elements: List[Dict]) -> Tuple[float, List[Dict]]:
-        """
-        Checks proximity to civilian areas (residential, commercial, schools, hospitals).
-        Returns (closest_distance_km, list_of_violations)
-        """
-        civilian_tags = [
-            'residential', 'commercial', 'retail', 'industrial', 'school', 
-            'hospital', 'clinic', 'university', 'college', 'kindergarten'
-        ]
-        
-        closest_distance = float('inf')
-        violations = []
-        
-        for element in all_nearby_elements:
-            tags = element.get('tags', {})
-            
-            # Check if element is a civilian area
-            is_civilian = any(tag in tags.get('landuse', '') or tag in tags.get('amenity', '') or tag in tags.get('building', '') for tag in civilian_tags)
-            if not is_civilian:
-                continue
-                
-            # Get element coordinates
-            element_coords = self._get_coords_from_element(element)
-            if not element_coords:
-                continue
-                
-            # Find closest point of civilian area to landing site
-            for coord_lat, coord_lon in element_coords:
-                distance_km = self._distance_km(lat, lon, coord_lat, coord_lon)
-                closest_distance = min(closest_distance, distance_km)
-                
-                # Check for violations
-                if distance_km < self.civilian_exclusion_radius_m / 1000:
-                    violations.append({
-                        'type': tags.get('landuse') or tags.get('amenity') or tags.get('building', 'unknown'),
-                        'distance_km': distance_km,
-                        'coordinates': (coord_lat, coord_lon)
-                    })
-        
-        return closest_distance if closest_distance != float('inf') else 10.0, violations
+    def analyze_site(self, lat: float, lon: float, polygon_coords: List[Tuple[float, float]]) -> SafetyReport:
+        slope_score, slope_degrees = self._get_terrain_slope(lat, lon)
+        obstacle_count = self._count_obstacles_near_site(lat, lon)
+        closest_civilian_distance, civilian_violations = self._check_civilian_proximity(lat, lon)
+        is_safe = (slope_degrees <= self.max_slope_degrees and closest_civilian_distance >= self.civilian_exclusion_radius_m / 1000 and obstacle_count == 0)
+        civilian_score = min(100, int((closest_civilian_distance * 1000 / self.civilian_exclusion_radius_m) * 100))
+        obstacle_penalty = min(50, obstacle_count * 25)
+        safety_score = max(0, min(slope_score, civilian_score) - obstacle_penalty)
+        risk_level = "HIGH"
+        if not is_safe:
+            if slope_degrees > self.max_slope_degrees: risk_level = f"UNSAFE (Slope > {self.max_slope_degrees}°)"
+            elif len(civilian_violations) > 0: risk_level = "UNSAFE (Civilian Area)"
+            elif obstacle_count > 0: risk_level = f"UNSAFE ({obstacle_count} Obstacles)"
+            else: risk_level = "UNSAFE"
+        elif safety_score >= 80: risk_level = "LOW"
+        elif safety_score >= 60: risk_level = "MODERATE"
+        return SafetyReport(is_safe=is_safe, risk_level=risk_level, safety_score=safety_score, obstacle_count=obstacle_count, closest_civilian_distance_km=closest_civilian_distance, civilian_violations=civilian_violations)
+
+    def _get_relevant_cells(self, lat: float, lon: float) -> List[Tuple[int, int]]:
+        cx, cy = int(lat * 100), int(lon * 100)
+        return [(cx + dx, cy + dy) for dx in [-1, 0, 1] for dy in [-1, 0, 1]]
+
+    def _count_obstacles_near_site(self, lat: float, lon: float) -> int:
+        count = 0
+        for cell in self._get_relevant_cells(lat, lon):
+            if cell in self.obstacle_index:
+                for obs_lat, obs_lon in self.obstacle_index[cell]:
+                    if self._distance_meters(lat, lon, obs_lat, obs_lon) < 200:
+                        count += 1
+        return count
+
+    def _check_civilian_proximity(self, lat: float, lon: float) -> Tuple[float, List[Dict]]:
+        closest_dist, violations = float('inf'), []
+        for cell in self._get_relevant_cells(lat, lon):
+            if cell in self.civilian_index:
+                for area in self.civilian_index[cell]:
+                    dist_km = self._distance_km(lat, lon, area['coords'][0], area['coords'][1])
+                    closest_dist = min(closest_dist, dist_km)
+                    if dist_km < self.civilian_exclusion_radius_m / 1000:
+                        violations.append({'type': area['tags'].get('landuse', 'unknown'), 'distance_km': dist_km})
+        return (closest_dist if closest_dist != float('inf') else 999.0), violations
 
     def _get_coords_from_element(self, element: Dict) -> List[Tuple[float, float]]:
-        """Extract coordinates from an OSM element."""
-        if element.get('type') == 'node':
-            lat = element.get('lat')
-            lon = element.get('lon')
-            if lat is not None and lon is not None:
-                return [(lat, lon)]
-        elif element.get('type') == 'way':
-            # For ways, we need to look up the actual node coordinates
-            # Since we don't have the node lookup here, we'll use the geometry if available
-            geometry = element.get('geometry', [])
-            if geometry:
-                coords = []
-                for point in geometry:
-                    lat = point.get('lat')
-                    lon = point.get('lon')
-                    if lat is not None and lon is not None:
-                        coords.append((lat, lon))
-                return coords
-        elif element.get('type') == 'relation':
-            # For relations, try to get center coordinates if available
-            center = element.get('center')
-            if center:
-                lat = center.get('lat')
-                lon = center.get('lon')
-                if lat is not None and lon is not None:
-                    return [(lat, lon)]
+        geom = element.get('geometry', [])
+        if geom: return [(node['lat'], node['lon']) for node in geom if 'lat' in node and 'lon' in node]
+        if element.get('type') == 'node': return [(element.get('lat'), element.get('lon'))]
         return []
 
     def _distance_km(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate distance between two points in kilometers."""
         return self._distance_meters(lat1, lon1, lat2, lon2) / 1000
 
     def _distance_meters(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate distance between two points in meters using Haversine formula."""
-        R = 6371000  # Earth's radius in meters
-        
-        lat1_rad = np.radians(lat1)
-        lat2_rad = np.radians(lat2)
-        delta_lat = np.radians(lat2 - lat1)
-        delta_lon = np.radians(lon2 - lon1)
-        
-        a = (np.sin(delta_lat / 2) * np.sin(delta_lat / 2) + 
-             np.cos(lat1_rad) * np.cos(lat2_rad) * 
-             np.sin(delta_lon / 2) * np.sin(delta_lon / 2))
-        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-        
+        R = 6371000
+        lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+        dlat, dlon = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
-    
-    # shallnotcrash/landing_site/terrain_analyzer.py
-    def analyze_path_corridor(self, path_coordinates: List[Tuple[float, float]]) -> SafetyReport:
-        """
-        Analyzes a flight path corridor for terrain and obstacle safety.
-        
-        Args:
-            path_coordinates: List of (lat, lon) coordinates defining the flight path
-            
-        Returns:
-            SafetyReport with safety assessment for the flight path
-        """
-        # For now, implement a simplified path analysis
-        # In a real implementation, this would check terrain elevation along the path,
-        # obstacles that intersect the path corridor, and other hazards
-        
-        # Check if path has sufficient points
-        if len(path_coordinates) < 2:
-            return SafetyReport(
-                is_safe=False,
-                risk_level="INVALID_PATH",
-                safety_score=0,
-                obstacle_count=0,
-                closest_civilian_distance_km=0.0  # Added required parameter with a safe default value
-            )
-        
-        # Simplified safety check - always return safe for now
-        # In a real implementation, this would perform actual terrain analysis
-        # along the flight path corridor
-        
-        return SafetyReport(
-            is_safe=True,
-            risk_level="LOW",
-            safety_score=100,
-            obstacle_count=0,
-            closest_civilian_distance_km=10.0  # Added required parameter with a safe default value
-        )

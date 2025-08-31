@@ -27,27 +27,58 @@ class CoordinateCalculations:
 
     @staticmethod
     def get_dimensions(coords: List[Tuple[float, float]]) -> Tuple[float, float, float]:
-        """Calculates the length, width, and orientation of a polygon."""
-        if len(coords) < 2: return 0, 0, 0
-        
-        # This is a rough approximation. For a simple 'way', this is the length.
-        # For a closed polygon, this is half the perimeter.
-        distances = [CoordinateCalculations.distance_km(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1]) * 1000 for i in range(len(coords)-1)]
-        length = sum(distances) if len(coords) == 2 else sum(distances) / 2
+        """
+        Calculates length, width, and orientation of a polygon using Principal Component Analysis (PCA).
+        This method is highly accurate for arbitrarily rotated shapes like runways.
+        """
+        if len(coords) < 2:
+            return 0, 0, 0
 
-        lats = [c[0] for c in coords]
-        lons = [c[1] for c in coords]
-        # A more robust width calculation is needed for complex polygons.
-        # This placeholder is a simple bounding box width.
-        width_approx_lat = (max(lats) - min(lats)) * 111.32 * 1000
-        width_approx_lon = (max(lons) - min(lons)) * 111.32 * np.cos(np.radians(np.mean(lats))) * 1000
-        width = min(width_approx_lat, width_approx_lon) if max(width_approx_lat, width_approx_lon) > 0 else 0
+        # For simple lines (like a runway defined by two points), calculate directly.
+        if len(coords) == 2:
+            length_m = CoordinateCalculations.distance_km(coords[0][0], coords[0][1], coords[1][0], coords[1][1]) * 1000
+            # Assume a default minimum width for simple lines if width is not defined
+            width_m = 10 
+            dy = coords[1][0] - coords[0][0]
+            dx = np.cos(np.radians(coords[0][0])) * (coords[1][1] - coords[0][1])
+            orientation = np.degrees(np.arctan2(dy, dx))
+            return length_m, width_m, (orientation + 360) % 360
+
+        # Use PCA for polygons with more than 2 points
+        # Convert (lat, lon) to a local Cartesian coordinate system (in meters) for accurate PCA
+        mean_lat = np.mean([c[0] for c in coords])
+        coords_meters = np.array([
+            (
+                (c[1] - coords[0][1]) * 111.32 * np.cos(np.radians(mean_lat)) * 1000,
+                (c[0] - coords[0][0]) * 111.32 * 1000
+            ) for c in coords
+        ])
         
-        dy = coords[1][0] - coords[0][0]
-        dx = np.cos(np.radians(coords[0][0])) * (coords[1][1] - coords[0][1])
-        orientation = np.degrees(np.arctan2(dy, dx))
+        coords_meters -= np.mean(coords_meters, axis=0) # Center the data
         
-        return length, max(1, width), (orientation + 360) % 360
+        cov_matrix = np.cov(coords_meters, rowvar=False)
+        eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+        
+        # Sort eigenvectors by eigenvalues
+        sorted_indices = np.argsort(eigenvalues)[::-1]
+        sorted_eigenvectors = eigenvectors[:, sorted_indices]
+        
+        # Project points onto the principal axes
+        projected_coords = coords_meters.dot(sorted_eigenvectors)
+        
+        # Calculate length and width from the spread of projected points
+        min_proj = np.min(projected_coords, axis=0)
+        max_proj = np.max(projected_coords, axis=0)
+        span = max_proj - min_proj
+        
+        length_m = span[0]
+        width_m = span[1]
+
+        # Orientation from the primary eigenvector
+        primary_eigenvector = sorted_eigenvectors[:, 0]
+        orientation = np.degrees(np.arctan2(primary_eigenvector[1], primary_eigenvector[0]))
+
+        return length_m, max(1.0, width_m), (orientation + 360) % 360
 
     @staticmethod
     def get_point_at_distance_and_bearing(lat: float, lon: float, distance_m: float, bearing_deg: float) -> Tuple[float, float]:
@@ -66,20 +97,15 @@ class CoordinateCalculations:
     @staticmethod
     def create_polygon_for_runway(lat: float, lon: float, length_m: int, width_m: int, heading: float) -> List[Tuple[float, float]]:
         """Creates an accurate rectangular polygon for a runway."""
-        # --- ENHANCEMENT ---
-        # Replaced placeholder with accurate trigonometric calculation.
         half_len = length_m / 2
         half_wid = width_m / 2
         
-        # Bearings for the 4 corners relative to the runway heading
         h_plus_90 = (heading + 90) % 360
         h_minus_90 = (heading - 90 + 360) % 360
 
-        # Center points of the two ends of the runway
         p1 = CoordinateCalculations.get_point_at_distance_and_bearing(lat, lon, half_len, heading)
         p2 = CoordinateCalculations.get_point_at_distance_and_bearing(lat, lon, half_len, (heading + 180) % 360)
 
-        # Calculate the four corners of the rectangle
         c1 = CoordinateCalculations.get_point_at_distance_and_bearing(p1[0], p1[1], half_wid, h_plus_90)
         c2 = CoordinateCalculations.get_point_at_distance_and_bearing(p1[0], p1[1], half_wid, h_minus_90)
         c3 = CoordinateCalculations.get_point_at_distance_and_bearing(p2[0], p2[1], half_wid, h_minus_90)
@@ -93,10 +119,10 @@ class CoordinateCalculations:
         if not points or len(points) < 3: return points
         
         def get_perp_dist(p, p1, p2):
-            x_diff, y_diff = p2[1] - p1[1], p2[0] - p1[0]
-            num = abs(y_diff * p[1] - x_diff * p[0] + p2[1] * p1[0] - p2[0] * p1[1])
-            den = np.sqrt(y_diff**2 + x_diff**2)
-            return 0 if den == 0 else num / den
+            # Using a simple Euclidean distance for simplification in lat/lon space
+            # This is an approximation but sufficient for visualization purposes
+            p_arr, p1_arr, p2_arr = np.array(p), np.array(p1), np.array(p2)
+            return np.linalg.norm(np.cross(p2_arr - p1_arr, p1_arr - p_arr)) / np.linalg.norm(p2_arr - p1_arr) if np.linalg.norm(p2_arr - p1_arr) != 0 else 0
 
         max_dist, index = 0, 0
         for i in range(1, len(points) - 1):
@@ -109,3 +135,4 @@ class CoordinateCalculations:
             return res1[:-1] + res2
         else:
             return [points[0], points[-1]]
+    

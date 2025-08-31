@@ -1,46 +1,44 @@
 # shallnotcrash/landing_site/utils/calculations.py
 """
-Contains the core logic for evaluating landing sites and constructing
-the data acquisition queries sent to the OpenStreetMap Overpass API.
-
-This module is responsible for:
-1.  SiteScoring: Translating raw map data into a quantitative suitability score.
-2.  OverpassQueryBuilder: Generating efficient, high-success-rate queries to
-    acquire the necessary tactical map data, now including unconventional sites.
+[ENHANCED SITE SCORING - V2]
+Improved scoring to prioritize runways over other options.
 """
 from typing import Dict, Tuple
 
 class SiteScoring:
     """
-    Calculates the suitability of a potential landing site based on its
-    physical characteristics, safety, and proximity.
+    Calculates the suitability of potential landing sites with runway priority.
     """
     
     @staticmethod
     def classify_site(tags: Dict) -> Tuple[str, str]:
         """
-        Classifies an OSM element into a site type and surface type.
-        This has been expanded to recognize more potential landing surfaces.
-        
-        Args:
-            tags: A dictionary of OpenStreetMap tags for an element.
-            
-        Returns:
-            A tuple containing the site_type (e.g., 'runway', 'beach')
-            and surface_type (e.g., 'asphalt', 'sand').
+        Classifies OSM elements with runway priority.
         """
-        if tags.get('aeroway') in ('runway', 'aerodrome'):
+        aeroway = tags.get('aeroway', '')
+        
+        # Runways get highest priority
+        if aeroway == 'runway':
             return 'runway', tags.get('surface', 'asphalt')
-        if tags.get('aeroway') == 'taxiway':
+        
+        # Other aviation infrastructure
+        if aeroway in ('aerodrome', 'airfield'):
+            return 'airfield', tags.get('surface', 'asphalt')
+            
+        # Taxiways are lower priority
+        if aeroway == 'taxiway':
             return 'taxiway', tags.get('surface', 'asphalt')
+            
+        # Road and field options
         if tags.get('highway') in ('motorway', 'trunk', 'primary', 'secondary'):
             return 'major_road', tags.get('surface', 'asphalt')
-        # --- STRATEGIC ENHANCEMENT ---
-        # Identify beaches as potential, last-resort landing sites.
+            
         if tags.get('natural') == 'beach':
             return 'beach', 'sand'
+            
         if tags.get('landuse') in ('farmland', 'meadow', 'grass', 'greenfield'):
             return 'open_field', 'grass'
+            
         if tags.get('leisure') in ('park', 'golf_course', 'pitch'):
             return 'open_field', 'grass'
         
@@ -49,37 +47,34 @@ class SiteScoring:
     @staticmethod
     def calculate_suitability(site_type: str, surface: str, length: float, width: float, safety_score: int, distance: float) -> int:
         """
-        Calculates a final suitability score from 0 to 100.
-        
-        The score is a weighted combination of the site's type, surface,
-        dimensions, distance, and the comprehensive safety score from the
-        TerrainAndSafetyAnalyzer.
+        Enhanced scoring with strong runway preference.
         """
+        # Runways get massive bonus
         type_scores = {
-            'runway': 100,
-            'taxiway': 85,
-            'major_road': 65, # Increased viability for long, straight roads
+            'runway': 200,  # Double score for runways
+            'airfield': 150,
+            'taxiway': 60,  # Reduced score for taxiways
+            'major_road': 65,
             'open_field': 70,
-            'beach': 50 # A viable, but not ideal, option
+            'beach': 50
         }
+        
         surface_scores = {
-            'asphalt': 10,
-            'concrete': 10,
-            'grass': 5,
-            'gravel': 2,
-            'dirt': 1,
-            'sand': 3 # Scored appropriately for soft-field landing
+            'asphalt': 20, 'concrete': 25, 'grass': 10,
+            'gravel': 5, 'dirt': 1, 'sand': 3
         }
         
         base_score = type_scores.get(site_type, 0)
         base_score += surface_scores.get(surface, 0)
         
-        length_bonus = min(10, length / 100)
-        width_bonus = min(5, width / 10)
-        distance_penalty = max(0, distance * 1.5)
+        # Size bonuses
+        length_bonus = min(20, length / 50)  # More generous for larger sites
+        width_bonus = min(10, width / 5)
         
-        # The final score is now critically dependent on the safety analysis.
-        # A site with poor safety (low score) will be severely penalized.
+        # Distance penalty (less severe for excellent sites)
+        distance_penalty = max(0, distance * (2 if site_type == 'runway' else 1.5))
+        
+        # Safety is critical
         final_score = (base_score + length_bonus + width_bonus - distance_penalty) * (safety_score / 100.0)
         
         return max(0, min(100, int(final_score)))

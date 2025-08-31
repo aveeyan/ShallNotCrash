@@ -1,9 +1,4 @@
 # shallnotcrash/path_planner/constants.py
-"""
-[STABLE CALIBRATION - V29]
-This version corrects the code to match the intended logic described in
-the comments, resolving the critical A* turn penalty bug.
-"""
 import math
 from shallnotcrash.airplane.constants import C172PConstants
 
@@ -11,17 +6,15 @@ class PlannerConstants:
     G_ACCEL_MPS2: float = 9.80665
     EARTH_RADIUS_NM: float = 3440.065
     METERS_TO_NM: float = 1 / 1852.0
-    TIME_DELTA_SEC = 30
+    
+    # [THE FIX] Reduce the time step for a higher-resolution A* search.
+    # This creates more detailed paths that can be smoothed effectively.
+    TIME_DELTA_SEC = 15
+    
     METERS_PER_SECOND_PER_KNOT: float = 0.514444
     MAX_ASTAR_ITERATIONS = 75000
     SMOOTHED_PATH_NUM_POINTS = 100
-    SMOOTHING_FACTOR = 0.5
-
-    # --- [CRITICAL BUG FIX] ---
-    # Value corrected to match documented logic. The previous value of 15.0
-    # made turns prohibitively expensive, causing the A* search to fail.
     TURN_PENALTY_FACTOR = 1.2
-    
     ALTITUDE_DEVIATION_PENALTY = 1.5
     FEET_PER_NAUTICAL_MILE = 6076.12
     METERS_TO_FEET = 3.28084
@@ -29,7 +22,9 @@ class PlannerConstants:
     FINAL_APPROACH_GLIDESLOPE_DEG = 3.0
     GOAL_DISTANCE_TOLERANCE_NM: float = 0.2
     GOAL_ALTITUDE_TOLERANCE_FT: float = 250.0
-    
+    HIGH_ALTITUDE_THRESHOLD_FT = 3000.0
+    HIGH_ALTITUDE_TURN_INCENTIVE = 0.7
+
 class AircraftProfile:
     SAFE_DEFAULT_GLIDE_RATIO = 9.0
     GLIDE_RATIO: float = SAFE_DEFAULT_GLIDE_RATIO

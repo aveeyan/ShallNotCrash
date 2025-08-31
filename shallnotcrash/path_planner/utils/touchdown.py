@@ -14,6 +14,8 @@ from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import destination_point, calculate_bearing, haversine_distance_nm
 from .calculations import find_longest_axis
 
+# In shallnotcrash/path_planner/utils/touchdown.py
+
 def _generate_runway_options(site: LandingSite) -> List[Dict]:
     """Generates landing options for a formal runway."""
     options = []
@@ -22,7 +24,9 @@ def _generate_runway_options(site: LandingSite) -> List[Dict]:
 
     runway_orientation = site.orientation_degrees
     reciprocal_orientation = (runway_orientation + 180) % 360
-    half_length_nm = (site.length_m / 2.0) / PlannerConstants.METERS_PER_NAUTICAL_MILE
+
+    # [THE FIX] Use the correct, refactored constant for the conversion
+    half_length_nm = (site.length_m / 2.0) * PlannerConstants.METERS_TO_NM
 
     thresh1_lat, thresh1_lon = destination_point(site.lat, site.lon, runway_orientation, half_length_nm)
     thresh2_lat, thresh2_lon = destination_point(site.lat, site.lon, reciprocal_orientation, half_length_nm)

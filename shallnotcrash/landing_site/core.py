@@ -23,48 +23,48 @@ class LandingSiteFinder:
         self.osm_handler = OSMDataHandler(self.config.query_timeout, self.config.cache_enabled)
         logging.info("LandingSiteFinder initialized (Analyzer will be created per-search).")
 
-    def find_sites(self, lat: float, lon: float, dem_dir_path: str) -> SearchResults:
+    # shallnotcrash/landing_site/core.py
+
+# ... (imports and the rest of the class are the same) ...
+
+# In the LandingSiteFinder class:
+    def find_sites(self, lat: float, lon: float, dem_dir_path: str) -> tuple['SearchResults', 'TerrainAnalyzer']:
         origin_airport = Airport(lat=lat, lon=lon, name="Search Origin")
         profile = self.config.get_profile_for('cessna_172p')
         
         all_osm_elements = self.osm_handler.fetch_osm_data(lat, lon, self.config.search_radius_km)
         
-        # Initialize the analyzer here, so it can build its spatial index once.
         analyzer = TerrainAnalyzer(
             all_nearby_elements=all_osm_elements,
-            dem_dir_path=dem_dir_path, # Pass the path here
+            dem_dir_path=dem_dir_path,
             civilian_exclusion_radius_m=self.config.civilian_exclusion_radius_m,
             max_slope_degrees=self.config.max_slope_degrees
         )
-                
-        # Pass this 'analyzer' instance to the processing methods
+        
+        # ... (the rest of the site processing logic is the same) ...
         apt_runways = self.apt_dat_loader.load_runways_in_radius(lat, lon, self.config.search_radius_km)
         apt_dat_sites = self._process_apt_runways(apt_runways, lat, lon, analyzer, profile)
-
         osm_runway_elements = [e for e in all_osm_elements if e.get('tags', {}).get('aeroway') == 'runway']
         osm_runway_sites = self._process_osm_runways(osm_runway_elements, lat, lon, analyzer, profile)
-        
         other_osm_elements = [e for e in all_osm_elements if e.get('tags', {}).get('aeroway') != 'runway']
         other_osm_sites = self._process_osm_elements(other_osm_elements, lat, lon, analyzer, profile)
-
-        # Combine and deduplicate sites
         combined_runways = self._combine_and_deduplicate(apt_dat_sites, osm_runway_sites)
         all_sites = self._combine_and_deduplicate(combined_runways, other_osm_sites)
-        
         filtered_sites = self._filter_taxiways_if_better_options(all_sites)
-        
         sorted_sites = sorted(filtered_sites, key=lambda s: s.suitability_score, reverse=True)
         final_sites = sorted_sites[:self.config.max_sites_return]
 
-        analyzer.close_dem_sources()
-        
         logging.info(f"Search complete. Found {len(final_sites)} sites. ({len(apt_dat_sites)} from apt.dat)")
-        return SearchResults(
+        
+        results = SearchResults(
             origin_airport=origin_airport,
             landing_sites=final_sites,
             search_parameters=self.config.__dict__
         )
-
+        
+        # [THE FIX] Return both the results and the analyzer instance
+        return results, analyzer
+    
     # --- [FIXED] All processing methods now correctly accept the 'analyzer' parameter ---
 
     def _process_apt_runways(self, runways: List[Dict], origin_lat: float, origin_lon: float,
@@ -122,24 +122,39 @@ class LandingSiteFinder:
                 orientation_degrees=heading))
         return sites
 
-    def _process_osm_elements(self, elements: List[Dict], origin_lat: float, origin_lon: float, 
-                              analyzer: TerrainAnalyzer, profile: Dict) -> List[LandingSite]:
+    def _process_osm_elements(self, elements: List[Dict], origin_lat: float, origin_lon: float,
+                            analyzer: TerrainAnalyzer, profile: Dict) -> List[LandingSite]:
         sites = []
         processed_ids = set()
+
+        # [THE FIX] Define a maximum acceptable area for a landing site in square meters
+        MAX_SITE_AREA_SQ_M = 2_000_000  # 2 square kilometers
+
         for elem in elements:
-            if elem.get('id') in processed_ids: continue
+            if elem.get('id') in processed_ids:
+                continue
             coords = CoordinateCalculations.get_coords_from_element(elem)
-            if len(coords) < 2: continue
+            if len(coords) < 2:
+                continue
 
             length, width, orientation = CoordinateCalculations.get_dimensions(coords)
-            if length < profile['min_length_m'] or width < profile['min_width_m']: continue
+
+            # [THE FIX] Check if the calculated area is too large to be a practical site
+            area_sq_m = length * width
+            if area_sq_m > MAX_SITE_AREA_SQ_M:
+                continue  # Skip this feature because it's too large
+
+            if length < profile['min_length_m'] or width < profile['min_width_m']:
+                continue
 
             center_lat, center_lon = [sum(c) / len(c) for c in zip(*coords)]
             site_type, surface = SiteScoring.classify_site(elem.get('tags', {}))
-            if site_type == 'small_area': continue
+            if site_type == 'small_area':
+                continue
 
             safety_report = analyzer.analyze_site(center_lat, center_lon, coords)
-            if not safety_report.is_safe: continue
+            if not safety_report.is_safe:
+                continue
 
             distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, center_lat, center_lon)
             score = SiteScoring.calculate_suitability(site_type, surface, length, width, safety_report.safety_score, distance)
@@ -147,7 +162,7 @@ class LandingSiteFinder:
             sites.append(LandingSite(
                 lat=center_lat, lon=center_lon, length_m=int(length), width_m=int(width),
                 site_type=site_type, suitability_score=score, distance_km=round(distance, 2),
-                safety_report=safety_report, polygon_coords=coords, surface_type=surface, 
+                safety_report=safety_report, polygon_coords=coords, surface_type=surface,
                 orientation_degrees=orientation))
             processed_ids.add(elem.get('id'))
         return sites

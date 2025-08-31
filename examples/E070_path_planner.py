@@ -133,8 +133,8 @@ def run_full_system_test():
             
             # [ADDED] Print all waypoints for detailed analysis.
             print(f"     ...Detailed Waypoints for {site_label}:")
-            for j, wp in enumerate(path.waypoints):
-                print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
+            # for j, wp in enumerate(path.waypoints):
+            #     print(f"       WP #{j+1}: Lat={wp.lat:.4f}, Lon={wp.lon:.4f}, Alt={wp.alt_ft:.0f} ft")
         else:
             print(f"     ...Path generation failed for site {site_label}.")
 

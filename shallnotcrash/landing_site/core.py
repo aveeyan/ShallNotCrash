@@ -1,122 +1,161 @@
 # shallnotcrash/landing_site/core.py
 """
-[RE-ARCHITECTED - V2]
-This module contains the core logic for finding and evaluating potential
-landing sites. It acts as the primary orchestrator for the landing_site package.
-
-This version corrects a critical ImportError by removing invalid dependencies
-and using the canonical data models and loaders from the established public APIs.
+The core orchestrator for the landing site detection system. This module
+integrates data from various sources, processes it, and provides the final
+list of potential landing sites.
 """
 import logging
-from typing import List
+from typing import Optional, List, Dict
 
-# --- [FIX] Import the canonical Runway object from the central data_models ---
-from ..path_planner.data_models import Runway
-
-# --- [FIX] Import this package's output data model ---
-from .data_models import LandingSite
-
-# --- [FIX] Import the correct network loader from this package ---
+from .data_models import SearchConfig, LandingSite, SearchResults, Airport, SafetyReport
 from .runway_loader import RunwayLoader
+from .osm_data_handler import OSMDataHandler
+from .terrain_analyzer import TerrainAnalyzer
+from .utils.calculations import SiteScoring
+from .utils.coordinates import CoordinateCalculations
 
-# --- [FIX] Import utility functions from the path_planner's public API ---
 class LandingSiteFinder:
-    
-    """
-    Orchestrates the process of finding landing sites by using loaders
-    to gather data and then processing that data into a list of
-    structured LandingSite objects.
-    """
-    def __init__(self):
-        self.osm_loader = RunwayLoader()
-        if not logging.getLogger().hasHandlers():
-            logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        logging.info("LandingSiteFinder initialized with network (OSM) loader.")
+    """Main class to find and evaluate emergency landing sites."""
+    def __init__(self, config: Optional[SearchConfig] = None):
+        self.config = config or SearchConfig()
+        self.runway_loader = RunwayLoader()
+        self.osm_handler = OSMDataHandler(self.config.query_timeout, self.config.cache_enabled)
+        self.analyzer = TerrainAnalyzer(
+            civilian_exclusion_radius_m=self.config.civilian_exclusion_radius_m,
+            max_slope_degrees=self.config.max_slope_degrees
+        )
+        logging.info("LandingSiteFinder initialized and all components linked.")
 
-    def find_sites(self, lat: float, lon: float, radius_km: int) -> List[LandingSite]:
-        """
-        Finds and processes landing sites within a given radius.
+    def find_sites(self, lat: float, lon: float) -> SearchResults:
+        """The main operational method to run a complete search."""
+        origin_airport = Airport(lat=lat, lon=lon, name="Search Origin")
+        profile = self.config.get_profile_for('cessna_172p')
 
-        1. Fetches raw runway data using the network loader.
-        2. Parses the raw data into canonical Runway objects.
-        3. Groups runways into LandingSite objects.
-        """
-        logging.info(f"Finding landing sites near ({lat}, {lon}) with radius {radius_km}km.")
-        raw_osm_data = self.osm_loader.get_runways(lat, lon, radius_km)
-        
-        if not raw_osm_data:
-            logging.warning("The network loader returned no data. No landing sites found.")
-            return []
-        
-        # The parsing logic, once part of the test script, is now correctly
-        # centralized here as part of the site-finding process.
-        osm_runways = self._parse_osm_data_to_runways(raw_osm_data)
-        
-        # For simplicity, we will treat each runway as part of its own landing site.
-        # A more complex implementation could group runways by airport.
-        landing_sites = []
-        for runway in osm_runways:
-            site = LandingSite(
-                name=f"Site for {runway.name}",
-                center_lat=runway.center_lat,
-                center_lon=runway.center_lon,
-                runways=[runway]
+        fg_runways = self.runway_loader.get_runways(lat, lon, self.config.search_radius_km)
+        osm_elements = self.osm_handler.fetch_osm_data(lat, lon, self.config.search_radius_km)
+
+        # --- REFACTOR: All safety analysis is now handled by the analyzer. ---
+        # We pass the full list of OSM elements to each processing function.
+        primary_sites = self._process_fg_runways(fg_runways, lat, lon, osm_elements, profile)
+        secondary_sites = self._process_osm_elements(osm_elements, lat, lon, osm_elements, profile)
+
+        combined_sites = self._combine_and_deduplicate(primary_sites, secondary_sites)
+        sorted_sites = sorted(combined_sites, key=lambda s: s.suitability_score, reverse=True)
+        final_sites = sorted_sites[:self.config.max_sites_return]
+
+        logging.info(f"Search complete. Found {len(final_sites)} suitable landing sites.")
+        return SearchResults(
+            origin_airport=origin_airport,
+            landing_sites=final_sites,
+            search_parameters=self.config.__dict__
+        )
+
+    def _process_osm_elements(self, elements: List[Dict], origin_lat: float, origin_lon: float, all_nearby_elements: List[Dict], profile: Dict) -> List[LandingSite]:
+        """Processes raw OSM data into a list of LandingSite objects."""
+        sites = []
+        if not elements: return sites
+
+        for elem in elements:
+            coords = CoordinateCalculations.get_coords_from_element(elem)
+            if len(coords) < 2: continue
+
+            simplified_coords = CoordinateCalculations.simplify_polygon(coords, tolerance=0.0001)
+            if len(simplified_coords) < 2: continue
+
+            length, width, orientation = CoordinateCalculations.get_dimensions(simplified_coords)
+            if length < profile['min_length_m'] or width < profile['min_width_m']: continue
+
+            center_lat, center_lon = [sum(c) / len(c) for c in zip(*simplified_coords)]
+            site_type, surface = SiteScoring.classify_site(elem.get('tags', {}))
+            if site_type == 'small_area': continue
+
+            # --- ENHANCEMENT: Pass the site polygon for internal obstacle checks ---
+            safety_report = self.analyzer.analyze_site(
+                lat=center_lat, 
+                lon=center_lon, 
+                polygon_coords=simplified_coords, 
+                all_nearby_elements=all_nearby_elements
             )
-            landing_sites.append(site)
+            if not safety_report.is_safe:
+                continue
+
+            distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, center_lat, center_lon)
+            score = SiteScoring.calculate_suitability(site_type, surface, length, width, safety_report.safety_score, distance)
+
+            sites.append(LandingSite(
+                lat=center_lat, 
+                lon=center_lon, 
+                length_m=int(length), 
+                width_m=int(width),
+                site_type=site_type, 
+                suitability_score=score, 
+                distance_km=round(distance, 2),
+                safety_report=safety_report, 
+                polygon_coords=simplified_coords,
+                surface_type=surface, 
+                orientation_degrees=orientation
+            ))
+        return sites
+
+    def _process_fg_runways(self, runways: List[Dict], origin_lat: float, origin_lon: float, all_nearby_elements: List[Dict], profile: Dict) -> List[LandingSite]:
+        """Processes FlightGear runway data (as dictionaries) into LandingSite objects."""
+        sites = []
+        for runway_data in runways:
+            # Handle runway data as dictionary
+            length_ft = runway_data.get('length_ft', 0)
+            width_ft = runway_data.get('width_ft', 0)
+            runway_lat = runway_data.get('lat', 0)
+            runway_lon = runway_data.get('lon', 0)
+            heading = runway_data.get('heading', 0)
+            surface = runway_data.get('surface', 'unknown')
+            elevation_ft = runway_data.get('elevation_ft', 0)
             
-        logging.info(f"Found and processed {len(landing_sites)} potential landing sites.")
-        return landing_sites
+            length_m = int(length_ft * 0.3048)
+            width_m = int(width_ft * 0.3048)
+            if length_m < profile['min_length_m'] or width_m < profile['min_width_m']: 
+                continue
 
-    def _parse_osm_data_to_runways(self, osm_data: list) -> List[Runway]:
-        """
-        Parses the raw JSON from the Overpass API into a list of canonical Runway objects.
-        """
-        from ..path_planner import get_midpoint, get_bearing
-        runways = []
-        nodes = {item['id']: (item['lat'], item['lon']) for item in osm_data if item['type'] == 'node'}
-        
-        for item in osm_data:
-            if item['type'] == 'way' and item.get('tags', {}).get('aeroway') == 'runway':
-                way_nodes = item.get('nodes', [])
-                if len(way_nodes) < 2:
-                    continue
+            poly_coords = CoordinateCalculations.create_polygon_for_runway(
+                runway_lat, runway_lon, length_m, width_m, heading
+            )
+            
+            # --- ENHANCEMENT: Pass the runway polygon for internal obstacle checks ---
+            safety_report = self.analyzer.analyze_site(
+                lat=runway_lat, 
+                lon=runway_lon, 
+                polygon_coords=poly_coords, 
+                all_nearby_elements=all_nearby_elements
+            )
+            if not safety_report.is_safe:
+                continue
 
-                start_node = nodes.get(way_nodes[0])
-                end_node = nodes.get(way_nodes[-1])
+            distance = CoordinateCalculations.distance_km(origin_lat, origin_lon, runway_lat, runway_lon)
+            score = SiteScoring.calculate_suitability('runway', surface.lower(), length_m, width_m, safety_report.safety_score, distance)
 
-                if not start_node or not end_node:
-                    continue
-                
-                tags = item.get('tags', {})
-                runway_name = tags.get('ref', f"Runway_{item['id']}")
-                midpoint = get_midpoint(start_node[0], start_node[1], end_node[0], end_node[1])
-                bearing = get_bearing(start_node[0], start_node[1], end_node[0], end_node[1])
-                
-                # OSM data for length/width can be missing, default to 0.
-                try:
-                    length = float(tags.get('length', 0))
-                except (ValueError, TypeError):
-                    length = 0.0 # Handle cases where length is not a valid number
-                
-                try:
-                    width = float(tags.get('width', 0))
-                except (ValueError, TypeError):
-                    width = 0.0 # Handle cases where width is not a valid number
+            sites.append(LandingSite(
+                lat=runway_lat, 
+                lon=runway_lon, 
+                length_m=length_m, 
+                width_m=width_m,
+                site_type='runway', 
+                suitability_score=score, 
+                distance_km=round(distance, 2),
+                safety_report=safety_report, 
+                polygon_coords=poly_coords, 
+                surface_type=surface,
+                orientation_degrees=heading, 
+                elevation_m=int(elevation_ft * 0.3048)
+            ))
+        return sites
 
-                surface = tags.get('surface', 'unknown')
-
-                runways.append(Runway(
-                    name=runway_name,
-                    start_lat=start_node[0],
-                    start_lon=start_node[1],
-                    end_lat=end_node[0],
-                    end_lon=end_node[1],
-                    center_lat=midpoint[0],
-                    center_lon=midpoint[1],
-                    bearing_deg=bearing,
-                    length_m=length,
-                    width_m=width,
-                    surface_type=surface
-                ))
-        return runways
-        
+    def _combine_and_deduplicate(self, primary_sites: List[LandingSite], secondary_sites: List[LandingSite]) -> List[LandingSite]:
+        """Combines and de-duplicates sites, prioritizing primary runways."""
+        final_sites = list(primary_sites)
+        for osm_site in secondary_sites:
+            is_redundant = any(
+                CoordinateCalculations.distance_km(osm_site.lat, osm_site.lon, runway.lat, runway.lon) < 0.5
+                for runway in primary_sites
+            )
+            if not is_redundant:
+                final_sites.append(osm_site)
+        return final_sites

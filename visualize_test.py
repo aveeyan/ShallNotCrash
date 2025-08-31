@@ -4,86 +4,71 @@ import sys
 import logging
 
 # --- Setup Python Path ---
-# This ensures the script can find your 'shallnotcrash' package
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 # --- Import Your Core Modules ---
 from shallnotcrash.landing_site.core import LandingSiteFinder
 from shallnotcrash.landing_site.visualization import MapVisualizer
-from shallnotcrash.landing_site.terrain_analyzer import TerrainAnalyzer
 from shallnotcrash.path_planner.core import PathPlanner
 from shallnotcrash.path_planner.data_models import AircraftState
 
-# --- Basic Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main():
     """
-    An end-to-end test script that finds landing sites, plans a path to the best one,
-    and visualizes everything on an interactive map.
+    Generates an interactive map by finding all landing sites and pre-calculating
+    the optimal flight path from a fixed starting point to each one.
     """
-    print("--- Starting End-to-End Visualization Test ---")
+    print("--- Starting Interactive Path Visualization Test ---")
 
     # --- Configuration ---
-    # BIKF Keflavik Airport Coordinates
-    SEARCH_LAT, SEARCH_LON = 63.9850, -22.6056
-    
-    # Starting state of the aircraft (e.g., 10,000 ft, heading North)
+    # Point A: Fixed aircraft starting position
     start_state = AircraftState(
-        lat=SEARCH_LAT,
-        lon=SEARCH_LON,
-        alt_ft=10000.0,
-        heading_deg=0.0,
-        airspeed_kts=90.0
+        lat=64.05, lon=-22.5, alt_ft=5000.0,
+        heading_deg=180.0, airspeed_kts=70.0
     )
-
-    # Path to your offline Digital Elevation Model (DEM) files
     dem_dir_path = os.path.join(project_root, "shallnotcrash", "landing_site", "osm", "rasters")
     
     # --- Step 1: Find All Potential Landing Sites ---
     logging.info("Step 1: Finding all potential landing sites...")
     site_finder = LandingSiteFinder()
+    site_results, terrain_analyzer = site_finder.find_sites(start_state.lat, start_state.lon, dem_dir_path)
     
-    # [THE FIX] Capture both the results and the analyzer from the find_sites function
-    site_results, terrain_analyzer_for_planner = site_finder.find_sites(
-        start_state.lat, start_state.lon, dem_dir_path
-    )
-    
-    # ... (check for empty site_results is the same) ...
     if not site_results.landing_sites:
         logging.error("No landing sites found. Cannot proceed.")
         return
     logging.info(f"Found {len(site_results.landing_sites)} total potential sites.")
 
-    # --- Step 2: Plan a Path to the Best Site ---
-    logging.info("Step 2: Planning path to the optimal site...")
-    
-    # [THE FIX] The incorrect line is removed, as we now have the analyzer directly.
-    path_planner = PathPlanner(terrain_analyzer_for_planner)
-    
-    optimal_flight_path = path_planner.find_best_path(start_state, site_results.landing_sites)
-
-    # ... (The rest of the script is correct and remains the same) ...
-    # --- Step 3: Visualize the Results ---
-    logging.info("Step 3: Generating visualization map...")
-    visualizer = MapVisualizer()
+    # --- Step 2: Pre-calculate a Path to EVERY Site ---
+    logging.info("Step 2: Pre-calculating path for every site...")
+    path_planner = PathPlanner(terrain_analyzer)
     flight_paths_dict = {}
-    if optimal_flight_path:
-        logging.info(f"Optimal path found with {len(optimal_flight_path.waypoints)} waypoints.")
-        flight_paths_dict[0] = optimal_flight_path
-    else:
-        logging.warning("No optimal flight path could be generated.")
+
+    for i, site in enumerate(site_results.landing_sites):
+        # Use the direct method to generate a path to this specific site
+        flight_path = path_planner.generate_path_to_site(start_state, site)
+        if flight_path:
+            logging.info(f"  > Successfully planned path for site #{i+1}")
+            flight_paths_dict[i] = flight_path
+        else:
+            logging.warning(f"  > FAILED to plan path for site #{i+1}")
+
+    # --- Step 3: Visualize All Sites and All Paths ---
+    logging.info("Step 3: Generating interactive visualization map...")
+    visualizer = MapVisualizer()
     mission_map = visualizer.create_integrated_mission_map(
         start_state=start_state,
         results=site_results,
         flight_paths=flight_paths_dict
     )
-    map_filename = "mission_map.html"
+
+    map_filename = "interactive_mission_map.html"
     mission_map.save(map_filename)
+    
     logging.info(f"--- Test Complete ---")
-    logging.info(f"Interactive map saved to: {os.path.abspath(map_filename)}")
-    print(f"\nSuccess! Open '{map_filename}' in your browser to see the results.")
+    print(f"\nSuccess! Open '{map_filename}' in your browser to see the interactive results.")
+
 
 if __name__ == "__main__":
     main()

@@ -48,7 +48,7 @@ class FGProps:
         FUEL_FLOW_GPH = "/engines/engine/fuel-flow-gph"
         RUNNING = "/engines/engine/running"
         ## TODO: Find property tree or alternative to vibration
-        VIBRATION = "/engines/engine/vibration"
+        # VIBRATION = "/engines/engine/vibration"
         
         # Controls
         THROTTLE = "/controls/engines/engine/throttle"
@@ -76,6 +76,7 @@ class FGProps:
         HUMIDITY = "/environment/relative-humidity"
         VISIBILITY = "/environment/visibility-m"
         WIND_SPEED = "/environment/wind-speed-kt"
+        AMBIENT_DENSITY = "/environment/density-slugft3"
 
     #--------------------------
     # FLIGHT STATE
@@ -119,9 +120,9 @@ class FGProps:
     # ELECTRICAL SYSTEM
     #--------------------------
     class ELECTRICAL:
-        BATTERY_VOLTS = "/systems/electrical/outputs/battery/voltage-v"
-        ALTERNATOR_AMPS = "/systems/electrical/outputs/alternator/current-a"
-        BUS_VOLTS = "/systems/electrical/outputs/bus/voltage-v"
+        BATTERY_VOLTS = "/systems/electrical/volts"
+        ALTERNATOR_AMPS = "/systems/electrical/amps"
+        BUS_VOLTS = "/systems/electrical/volts"
 
     #--------------------------
     # SIMULATION CONTROL
@@ -130,3 +131,6 @@ class FGProps:
         PAUSE = "/sim/freeze/master"
         FREEZE = PAUSE
         SIM_SPEEDUP = "/sim/speedup"
+
+    class INSTRUMENTATION:
+        ALTIMETER_HG = "/instrumentation/altimeter/setting-inhg"

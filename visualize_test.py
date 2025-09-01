@@ -53,6 +53,8 @@ def main():
             flight_paths_dict[i] = flight_path
         else:
             logging.warning(f"  > FAILED to plan path for site #{i+1}")
+        
+        print(flight_paths_dict)
 
     # --- Step 3: Visualize All Sites and All Paths ---
     logging.info("Step 3: Generating interactive visualization map...")
@@ -69,6 +71,9 @@ def main():
     logging.info(f"--- Test Complete ---")
     print(f"\nSuccess! Open '{map_filename}' in your browser to see the interactive results.")
 
+    print("Table of Waypoints for Flight Path:")
+    for i, path in flight_paths_dict.items():
+        print(f"  > Waypoint {i+1}: {path.waypoint}")
 
 if __name__ == "__main__":
     main()

@@ -9,7 +9,7 @@ class PlannerConstants:
     
     # [THE FIX] Reduce the time step for a higher-resolution A* search.
     # This creates more detailed paths that can be smoothed effectively.
-    TIME_DELTA_SEC = 15
+    TIME_DELTA_SEC = 30
     
     METERS_PER_SECOND_PER_KNOT: float = 0.514444
     MAX_ASTAR_ITERATIONS = 75000

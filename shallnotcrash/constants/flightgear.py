@@ -48,7 +48,7 @@ class FGProps:
         FUEL_FLOW_GPH = "/engines/engine/fuel-flow-gph"
         RUNNING = "/engines/engine/running"
         ## TODO: Find property tree or alternative to vibration
-        # VIBRATION = "/engines/engine/vibration"
+        VIBRATION = "/engines/engine/vibration"
         
         # Controls
         THROTTLE = "/controls/engines/engine/throttle"

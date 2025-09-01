@@ -5,14 +5,17 @@ import subprocess
 import queue
 import os
 import time
+import json
 from flask import Flask, render_template, jsonify
 
 from helpers.flightgear import find_fgfs_executable, try_connect_fg, telemetry_worker
+from helpers.map_helpers import load_sites_as_geojson
 from shallnotcrash.constants.connection import FGConnectionConstants
 
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.WARNING)
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # --- Global State Dictionary ---
 state = {
@@ -33,17 +36,28 @@ def index():
 @app.route('/position')
 def position():
     try:
-        # Get the latest data packet from the worker thread
         data = state['telemetry_queue'].get_nowait()
-        # Also update the fallback cache with this fresh data
         state['last_good_telemetry'] = data.copy()
     except queue.Empty:
-        # If queue is empty, use the last known good data
         data = state['last_good_telemetry'].copy()
-        # CRITICAL FIX: Always override the connection status in the fallback
-        # with the real-time status from the global state.
         data['fg_connected'] = state['fg_connected']
     return jsonify(data)
+
+@app.route('/sites')
+def find_sites():
+    """
+    Loads pre-cached landing sites as a GeoJSON FeatureCollection.
+    The data transformation logic is handled by the load_sites_as_geojson helper.
+    """
+    cache_path = os.path.join(PROJECT_ROOT, "cache", "sites_cache.json")
+    # This helper function now correctly formats the GeoJSON properties.
+    sites_geojson = load_sites_as_geojson(cache_path)
+    
+    if not sites_geojson["features"]:
+        return jsonify({'error': 'No sites with polygon data found in cache.'}), 404
+        
+    return jsonify(sites_geojson)
+
 
 @app.route('/start_fg', methods=['POST'])
 def start_fg():
@@ -68,10 +82,9 @@ def start_fg():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
     try_connect_fg(state)
     
-    # [THE FIX] Correctly start the background thread, passing the state dictionary.
-    # The 'project_root' argument was incorrect and has been removed.
     threading.Thread(target=telemetry_worker, args=(state,), daemon=True).start()
     
     app.run(debug=True, use_reloader=False)

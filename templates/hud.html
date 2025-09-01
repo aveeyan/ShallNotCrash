@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}" />
@@ -11,51 +10,67 @@
         .panel { background: rgba(30,40,60,0.92); color: #fff; border-radius: 12px; padding: 15px; z-index: 1001; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border: 1px solid rgba(160,174,192,0.4); }
         #telemetry-panel { position: absolute; top: 18px; left: 18px; min-width: 250px; }
         #emergency-panel { position: absolute; top: 18px; right: 18px; min-width: 250px; text-align: center; }
-        #attitude-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; padding: 10px 20px; }
-        .telemetry-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 1.1rem; }
-        .telemetry-label { color: #a0aec0; font-size: 0.9rem; margin-right: 10px; }
-        .telemetry-trend { width: 15px; text-align: center; margin-left: 5px; }
-        .trend-up { color: #48bb78; }
-        .trend-down { color: #f56565; }
-        .sparkline { margin-left: 10px; }
-        #emergency-status { padding: 8px 12px; margin-top: 10px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.2rem; transition: all 0.3s; }
-        .status-normal { background-color: rgba(72, 187, 120, 0.2); color: #68d391; border: 1px solid #68d391; }
-        .status-emergency { background-color: #e53e3e; color: white; border: 1px solid white; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); } }
-        .attitude-item { text-align: center; margin: 0 15px; }
-        .attitude-label { font-size: 0.8rem; color: #a0aec0; margin-top: 5px; }
-        .gyro-container { width: 100px; height: 100px; border: 2px solid #a0aec0; border-radius: 50%; position: relative; overflow: visible; background: linear-gradient(180deg, #87ceeb 50%, #8b4513 50%); }
-        .gyro-plane { width: 80%; height: 80%; position: absolute; top: 10%; left: 10%; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'/%3E%3C/svg%3E"); background-size: contain; background-repeat: no-repeat; background-position: center; transition: transform 0.1s linear; }
-        .pitch-container { width: 20px; height: 100px; border: 2px solid #a0aec0; border-radius: 10px; position: relative; background-color: #2d3748; }
-        .pitch-zero-line { width: 100%; border-top: 2px solid white; position: absolute; top: 50%; left: 0; transform: translateY(-50%); }
-        .pitch-indicator-bar { width: 80%; height: 4px; background-color: #667eea; border-radius: 2px; position: absolute; left: 10%; top: 50%; transform: translateY(-50%); transition: top 0.1s linear; }
-        .yaw-container { width: 100px; height: 20px; border: 2px solid #a0aec0; border-radius: 10px; position: relative; background-color: #2d3748; }
-        .yaw-zero-line { height: 100%; border-left: 2px solid white; position: absolute; left: 50%; top: 0; transform: translateX(-50%); }
-        .yaw-indicator-bar { width: 4px; height: 80%; background-color: #667eea; border-radius: 2px; position: absolute; top: 10%; left: 50%; transform: translateX(-50%); transition: left 0.1s linear; }
         .button { margin-top: 15px; padding: 8px 16px; font-size: 1rem; border-radius: 7px; color: #fff; border: none; cursor: pointer; width: 100%; transition: all 0.2s; }
         .button-primary { background: #667eea; }
-        .button-danger { background-color: #c53030; }
+        .button-secondary { background: #4a5568; }
         .button:disabled { background: #a0aec0; color: #eee; cursor: not-allowed; opacity: 0.7; }
+
+        /* --- [NEW] Styles for the Sites Panel --- */
+        #sites-panel {
+            position: absolute;
+            top: 150px; /* Position below the emergency panel */
+            right: 18px;
+            width: 280px;
+            display: none; /* Hidden by default */
+        }
+        #sites-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+            max-height: 260px; /* Approx. 4 items at 65px each */
+            overflow-y: auto;
+        }
+        .site-item {
+            padding: 10px;
+            border-radius: 6px;
+            border-bottom: 1px solid #4a5568;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .site-item:last-child {
+            border-bottom: none;
+        }
+        .site-item:hover {
+            background-color: #4a5568;
+        }
+        .site-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .site-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+        .site-score {
+            font-size: 0.9em;
+            padding: 3px 7px;
+            border-radius: 10px;
+            background-color: #38a169;
+        }
+        .site-details {
+            font-size: 0.8em;
+            color: #a0aec0;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div id="telemetry-panel" class="panel">
-        <div class="telemetry-item">
-            <span class="telemetry-label">Speed</span>
-            <div><span class="telemetry-value" id="speed">-</span> kts<span id="speed-trend" class="telemetry-trend"></span></div>
-            <canvas id="speed-sparkline" class="sparkline" width="60" height="20"></canvas>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-label">Altitude</span>
-            <div><span class="telemetry-value" id="altitude">-</span> ft<span id="altitude-trend" class="telemetry-trend"></span></div>
-            <canvas id="altitude-sparkline" class="sparkline" width="60" height="20"></canvas>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-label">Heading</span>
-            <div><span class="telemetry-value" id="heading">-</span>°<span id="heading-trend" class="telemetry-trend"></span></div>
-            <canvas id="heading-sparkline" class="sparkline" width="60" height="20"></canvas>
-        </div>
         <div class="telemetry-item">
             <span class="telemetry-label">FG Status</span>
             <span id="fgstatus" style="color:#f56565; font-weight: bold;">Offline</span>
@@ -64,118 +79,177 @@
     </div>
     <div id="emergency-panel" class="panel">
         <div style="font-size: 1.2rem; color: #a0aec0; margin-bottom: 10px;">SYSTEM STATUS</div>
-        <div id="emergency-status" class="status-normal">SYSTEM NOMINAL</div>
-        <div id="emergency-details" style="font-size: 0.9rem; color: #cbd5e0; margin-top: 8px; min-height: 1.2em;"></div>
-        <button id="simulate-emergency" class="button button-danger">Simulate Emergency</button>
+        <button id="find-sites" class="button button-secondary">Find Landing Sites</button>
     </div>
-    <div id="attitude-panel" class="panel">
-        <div class="attitude-item">
-            <div class="gyro-container" title="Roll Angle"><div id="gyro-plane" class="gyro-plane"></div></div>
-            <div class="attitude-label">ROLL</div>
-        </div>
-        <div class="attitude-item">
-            <div class="pitch-container" title="Pitch Angle"><div class="pitch-zero-line"></div><div id="pitch-indicator" class="pitch-indicator-bar"></div></div>
-            <div class="attitude-label">PITCH</div>
-        </div>
-        <div class="attitude-item">
-            <div class="yaw-container" title="Yaw Rate"><div class="yaw-zero-line"></div><div id="yaw-indicator" class="yaw-indicator-bar"></div></div>
-            <div class="attitude-label">YAW</div>
-        </div>
+
+    <div id="sites-panel" class="panel">
+        <div style="font-size: 1.2rem; color: #a0aec0; margin-bottom: 5px;">PRIORITIZED SITES</div>
+        <div id="sites-list">
+            </div>
     </div>
+
 <script>
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([64.05, -22.5], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
     const PlaneIcon = L.divIcon({ className: '', html: '<div id="plane-marker" class="plane-emoji">✈️</div>', iconSize: [40, 40], iconAnchor: [20, 20] });
     let planeMarker = L.marker([64.05, -22.5], {icon: PlaneIcon}).addTo(map);
+
+    let selectedSiteLayer = null;
+    let navLine = null;
+    let selectedSiteCoords = null;
+
+    const defaultSiteStyle = (feature) => {
+        const color = feature.properties.display_color || '#FF8C00';
+        return { color: color, fillColor: color, weight: 2, fillOpacity: 0.65, opacity: 1 };
+    };
+    const selectedSiteStyle = {
+        color: '#FFFFFF',
+        weight: 4,
+        fillOpacity: 0.8,
+        opacity: 1
+    };
     
-    // [MODIFIED] This line was commented out, it is now fixed.
-    let flightPathCoords = []; 
-    let flightPath = L.polyline(flightPathCoords, {color: '#ee9922', weight: 3}).addTo(map);
+    // --- [MODIFIED] onEachFeature now also populates the sites list ---
+    let sitesLayerGroup = L.geoJSON(null, {
+        style: defaultSiteStyle,
+        onEachFeature: function (feature, layer) {
+            const props = feature.properties;
+            const score = (props.safety_report && props.safety_report.safety_score) ? props.safety_report.safety_score.toFixed(0) : 'N/A';
+            const popupContent = `<b>${props.name} (${props.type})</b><br>Safety Score: <b>${score}</b>`;
+            layer.bindPopup(popupContent);
 
-    const history = { speed: [], altitude: [], heading: [], maxLen: 30 };
+            layer.on('click', function(e) {
+                if (selectedSiteLayer) {
+                    selectedSiteLayer.setStyle(defaultSiteStyle(selectedSiteLayer.feature));
+                }
+                layer.setStyle(selectedSiteStyle);
+                selectedSiteLayer = layer;
+                const center = feature.properties;
+                if (center.center_lat && center.center_lon) {
+                    selectedSiteCoords = [center.center_lat, center.center_lon];
+                    updateNavLine();
+                }
+            });
 
-    function drawSparkline(canvasId, data, color) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas || data.length < 2) return;
-        const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
-        const min = Math.min(...data), max = Math.max(...data), range = max - min === 0 ? 1 : max - min;
-        ctx.clearRect(0, 0, w, h);
-        ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-        data.forEach((val, i) => {
-            const x = (i / (data.length - 1)) * w, y = h - ((val - min) / range) * h;
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
+            // --- [NEW] Create and append the corresponding list item ---
+            const sitesList = document.getElementById('sites-list');
+            const listItem = document.createElement('div');
+            listItem.className = 'site-item';
+
+            // --- [NEW] Get the score-based color from properties ---
+            const scoreColor = props.display_color || '#a0aec0';
+            // Note for text on bright backgrounds like yellow
+            const textColor = (scoreColor === '#FFFF00' || scoreColor === '#FFA500' || scoreColor === '#32CD32') ? '#333' : '#FFF'
+            
+            listItem.innerHTML = `
+                <div class="site-item-header">
+                    <span class="site-name">${props.name}</span>
+                    <span class="site-score" style="background-color: ${scoreColor}; color: ${textColor};">${score}</span>
+                </div>
+                <div class="site-details">
+                    ${props.type.replace('_', ' ')} &bull; ${(props.length_m || 0).toFixed(0)}m long
+                </div>
+            `;
+            
+            // --- [NEW] Add hover listeners to link list to map ---
+            listItem.addEventListener('mouseover', () => {
+                layer.openPopup();
+                layer.setStyle({ weight: 4, color: '#FFFF00' }); // Highlight with yellow
+            });
+            listItem.addEventListener('mouseout', () => {
+                layer.closePopup();
+                // Reset style only if it's not the currently selected layer
+                if (layer !== selectedSiteLayer) {
+                    layer.setStyle(defaultSiteStyle(feature));
+                } else {
+                    layer.setStyle(selectedSiteStyle); // Re-apply selected style
+                }
+            });
+            
+            sitesList.appendChild(listItem);
+        }
+    }).addTo(map);
+    
+    function updateNavLine() {
+        if (!selectedSiteCoords) return;
+        const planePos = planeMarker.getLatLng();
+        const destPos = L.latLng(selectedSiteCoords[0], selectedSiteCoords[1]);
+        if (!navLine) {
+            navLine = L.polyline([planePos, destPos], { color: '#FF00FF', weight: 3, opacity: 0.8, dashArray: '10, 10' }).addTo(map);
+        } else {
+            navLine.setLatLngs([planePos, destPos]);
+        }
     }
 
     function updateHUD() {
         fetch('/position').then(r => r.json()).then(data => {
-            if (!data) return;
-            ['speed', 'altitude', 'heading'].forEach(key => {
-                const el = document.getElementById(key), trendEl = document.getElementById(`${key}-trend`);
-                if (!el || !trendEl || data[key] === null) return;
-                const val = Math.round(data[key]), hist = history[key];
-                const prevVal = hist.length > 0 ? hist[hist.length-1] : val;
-                el.textContent = val;
-                if (val > prevVal) { trendEl.innerHTML = '▲'; trendEl.className = 'telemetry-trend trend-up';
-                } else if (val < prevVal) { trendEl.innerHTML = '▼'; trendEl.className = 'telemetry-trend trend-down';
-                } else { trendEl.innerHTML = ''; }
-                hist.push(val);
-                if(hist.length > history.maxLen) hist.shift();
-                drawSparkline(`${key}-sparkline`, hist, '#a0aec0');
-            });
-            if (data.lat !== null && data.lng !== null) {
+            if (data && data.lat !== null && data.lng !== null) {
                 const pos = [data.lat, data.lng];
                 planeMarker.setLatLng(pos);
-                map.setView(pos, map.getZoom(), {animate: false});
+                if (!selectedSiteLayer) {
+                    map.setView(pos, map.getZoom(), {animate: false});
+                }
                 document.getElementById('plane-marker').style.transform = `rotate(${data.heading || 0}deg)`;
-
-                // [MODIFIED] This line was commented out, it is now fixed.
-                flightPathCoords.push(pos);
-                flightPath.setLatLngs(flightPathCoords);
+                if (selectedSiteLayer) {
+                    updateNavLine();
+                }
             }
-            document.getElementById('gyro-plane').style.transform = `rotate(${data.roll || 0}deg)`;
-            document.getElementById('pitch-indicator').style.top = `${50 - (Math.max(-20, Math.min(20, data.pitch || 0)) * 2.5)}%`;
-            document.getElementById('yaw-indicator').style.left = `${50 + (Math.max(-10, Math.min(10, data.yaw_rate || 0)) * 4)}%`;
-            
-            const emergencyPanel = document.getElementById('emergency-status'), detailsPanel = document.getElementById('emergency-details');
-            const result = data.emergency_result || {pattern_type: 'NORMAL'};
-            
-            if (result.pattern_type && result.pattern_type !== 'NORMAL') {
-                emergencyPanel.textContent = result.pattern_type.replace('_', ' ');
-                emergencyPanel.className = 'status-emergency';
-                
-                // [MODIFIED] This line was commented out, it is now fixed.
-                let probability = ((result.probability || 0) * 100).toFixed(0);
-                detailsPanel.textContent = `Confidence: ${probability}%`;
-
-            } else {
-                emergencyPanel.textContent = 'SYSTEM NOMINAL';
-                emergencyPanel.className = 'status-normal';
-                detailsPanel.textContent = 'All parameters within normal limits.';
-            }
-            const startBtn = document.getElementById('start-fg');
-
-            // [MODIFIED] More robust check for the connection status
-            const fgConnected = (data.fg_connected === true);
-            
+            const fgConnected = (data && data.fg_connected === true);
             document.getElementById('fgstatus').textContent = fgConnected ? "Online" : "Offline";
             document.getElementById('fgstatus').style.color = fgConnected ? "#48bb78" : "#f56565";
-            startBtn.disabled = fgConnected;
-            startBtn.textContent = fgConnected ? "FlightGear Running" : "Start FlightGear";
+            document.getElementById('start-fg').disabled = fgConnected;
         });
     }
+
+    // --- [MODIFIED] This function now sorts the data and shows the panel ---
+    function findAndDisplaySites() {
+        const btn = document.getElementById('find-sites');
+        const sitesPanel = document.getElementById('sites-panel');
+        const sitesList = document.getElementById('sites-list');
+        btn.disabled = true;
+        btn.textContent = "Loading Sites...";
+
+        fetch('/sites')
+            .then(response => {
+                if (!response.ok) { return response.json().then(err => { throw new Error(err.error || 'Failed to load sites.') }); }
+                return response.json();
+            })
+            .then(geojson_data => {
+                // --- [NEW] Sort features by safety score in descending order ---
+                geojson_data.features.sort((a, b) => {
+                    const scoreA = a.properties.priority_score || 0;
+                    const scoreB = b.properties.priority_score || 0;
+                    return scoreB - scoreA;
+                });
+
+                // Clear previous data
+                sitesLayerGroup.clearLayers();
+                sitesList.innerHTML = ''; // Clear the list
+
+                sitesLayerGroup.addData(geojson_data);
+
+                if (geojson_data.features.length > 0) {
+                    map.fitBounds(sitesLayerGroup.getBounds().pad(0.1));
+                    sitesPanel.style.display = 'block'; // Show the panel
+                } else {
+                    sitesPanel.style.display = 'none'; // Hide if no sites
+                }
+            })
+            .catch(error => { console.error('Error fetching landing sites:', error); alert('Error: ' + error.message); })
+            .finally(() => { btn.disabled = false; btn.textContent = "Find Landing Sites"; });
+    }
+
     setInterval(updateHUD, 200);
     updateHUD();
+    document.getElementById('find-sites').onclick = findAndDisplaySites;
     document.getElementById('start-fg').onclick = function() {
         const btn = this; btn.disabled = true; btn.textContent = "Starting...";
         fetch('/start_fg', {method: 'POST'}).then(r => r.json()).then(data => {
-            if (data.success) { alert("FlightGear started!"); } 
-            else { alert("Failed to start FlightGear: " + (data.error || "Unknown error")); btn.disabled = false; btn.textContent = "Start FlightGear"; }
+            if (!data.success) {
+                 alert("Failed to start FlightGear: " + (data.error || "Unknown error"));
+                 btn.disabled = false; btn.textContent = "Start FlightGear";
+            }
         });
-    };
-    document.getElementById('simulate-emergency').onclick = function() {
-        alert("Emergency simulation not yet implemented.");
     };
 </script>
 </body>

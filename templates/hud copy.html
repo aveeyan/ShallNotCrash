@@ -1,0 +1,141 @@
+
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet.css') }}" />
+    <script src="{{ url_for('static', filename='js/leaflet.js') }}"></script>
+    <title>ShallNotCrash HUD</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        #map { width: 100vw; height: 100vh; z-index: 0; background-color: #aacbff; }
+        .plane-emoji { font-size: 1.8rem; line-height: 1; text-shadow: 0 2px 5px rgba(0,0,0,0.3); transform-origin: center center; will-change: transform; user-select: none; pointer-events: none; }
+        .panel { background: rgba(30,40,60,0.92); color: #fff; border-radius: 12px; padding: 15px; z-index: 1001; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border: 1px solid rgba(160,174,192,0.4); }
+        #telemetry-panel { position: absolute; top: 18px; left: 18px; min-width: 250px; }
+        #emergency-panel { position: absolute; top: 18px; right: 18px; min-width: 250px; text-align: center; }
+        #attitude-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; padding: 10px 20px; }
+        .telemetry-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 1.1rem; }
+        .telemetry-label { color: #a0aec0; font-size: 0.9rem; margin-right: 10px; }
+        .button { margin-top: 15px; padding: 8px 16px; font-size: 1rem; border-radius: 7px; color: #fff; border: none; cursor: pointer; width: 100%; transition: all 0.2s; }
+        .button-primary { background: #667eea; }
+        .button-secondary { background: #4a5568; }
+        .button:disabled { background: #a0aec0; color: #eee; cursor: not-allowed; opacity: 0.7; }
+
+        /* --- Custom DivIcon styles for landing sites --- */
+        .runway-icon { background: #48bb78; border: 2px solid white; border-radius: 3px; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+        .off-field-icon { background: #ecc94b; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="telemetry-panel" class="panel">
+        <!-- ... telemetry items ... -->
+        <div class="telemetry-item">
+            <span class="telemetry-label">FG Status</span>
+            <span id="fgstatus" style="color:#f56565; font-weight: bold;">Offline</span>
+        </div>
+        <button id="start-fg" class="button button-primary">Start FlightGear</button>
+    </div>
+    <div id="emergency-panel" class="panel">
+        <div style="font-size: 1.2rem; color: #a0aec0; margin-bottom: 10px;">SYSTEM STATUS</div>
+        <button id="find-sites" class="button button-secondary">Find Landing Sites</button>
+    </div>
+    <!-- ... attitude panel ... -->
+
+<script>
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([64.05, -22.5], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+    const PlaneIcon = L.divIcon({ className: '', html: '<div id="plane-marker" class="plane-emoji">✈️</div>', iconSize: [40, 40], iconAnchor: [20, 20] });
+    let planeMarker = L.marker([64.05, -22.5], {icon: PlaneIcon}).addTo(map);
+    
+    // --- [MODIFIED] sitesLayerGroup is now a GeoJSON layer for easier management ---
+    let sitesLayerGroup = L.geoJSON(null, {
+        // This function styles each point (site)
+        pointToLayer: function (feature, latlng) {
+            let icon;
+            const siteType = feature.properties.type || 'Unknown';
+
+            if (siteType.toLowerCase().includes('runway')) {
+                icon = L.divIcon({ className: 'runway-icon', iconSize: [12, 12] });
+            } else {
+                icon = L.divIcon({ className: 'off-field-icon', iconSize: [12, 12] });
+            }
+            return L.marker(latlng, { icon: icon });
+        },
+        // This function is called for each feature and is perfect for adding popups
+        onEachFeature: function (feature, layer) {
+            const props = feature.properties;
+            const popupContent = `
+                <b>${props.name} (${props.type})</b><br>
+                Score: <b>${(props.score || 0).toFixed(0)}</b><br>
+                Length: ${(props.length_m || 0).toFixed(0)} m<br>
+                Heading: ${(props.heading || 0).toFixed(0)}°<br>
+                Surface: ${props.surface}
+            `;
+            layer.bindPopup(popupContent);
+        }
+    }).addTo(map);
+
+    function updateHUD() {
+        fetch('/position').then(r => r.json()).then(data => {
+            if (data && data.lat !== null && data.lng !== null) {
+                const pos = [data.lat, data.lng];
+                planeMarker.setLatLng(pos);
+                map.setView(pos, map.getZoom(), {animate: false});
+                document.getElementById('plane-marker').style.transform = `rotate(${data.heading || 0}deg)`;
+            }
+            const fgConnected = (data && data.fg_connected === true);
+            document.getElementById('fgstatus').textContent = fgConnected ? "Online" : "Offline";
+            document.getElementById('fgstatus').style.color = fgConnected ? "#48bb78" : "#f56565";
+            document.getElementById('start-fg').disabled = fgConnected;
+        });
+    }
+
+    // --- [MODIFIED] This function now fetches and plots GeoJSON data ---
+    function findAndDisplaySites() {
+        const btn = document.getElementById('find-sites');
+        btn.disabled = true;
+        btn.textContent = "Loading Sites...";
+
+        fetch('/sites')
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Failed to load sites cache.') });
+                }
+                return response.json();
+            })
+            .then(geojson_data => {
+                sitesLayerGroup.clearLayers(); // Clear old markers
+                sitesLayerGroup.addData(geojson_data); // Add the new GeoJSON data to the layer
+                // Optionally, fit the map view to the new markers
+                if (geojson_data.features.length > 0) {
+                    map.fitBounds(sitesLayerGroup.getBounds().pad(0.1));
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching landing sites:', error);
+                alert('Error: ' + error.message);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = "Find Landing Sites";
+            });
+    }
+
+    setInterval(updateHUD, 200);
+    updateHUD();
+
+    document.getElementById('start-fg').onclick = function() {
+        const btn = this; btn.disabled = true; btn.textContent = "Starting...";
+        fetch('/start_fg', {method: 'POST'}).then(r => r.json()).then(data => {
+            if (!data.success) {
+                 alert("Failed to start FlightGear: " + (data.error || "Unknown error"));
+                 btn.disabled = false;
+                 btn.textContent = "Start FlightGear";
+            }
+        });
+    };
+    
+    document.getElementById('find-sites').onclick = findAndDisplaySites;
+
+</script>
+</body>
+</html>

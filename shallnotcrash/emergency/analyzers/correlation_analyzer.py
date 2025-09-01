@@ -9,8 +9,8 @@ from enum import IntEnum
 from typing import Dict, List, Tuple, Optional, Any
 from collections import deque, defaultdict
 import numpy as np
-from scipy.stats import pearsonr
-import time
+from scipy.stats import pearsonr, ConstantInputWarning
+import warnings
 
 # This import is necessary to have access to the AnomalyScore class for type checking
 try:
@@ -108,6 +108,7 @@ class CorrelationAnalyzer:
         overall_level, confidence = self._determine_overall_level(system_correlations, param_correlations)
         recommendations = self._generate_recommendations(system_correlations, param_correlations)
         dominant_system = self._identify_dominant_system(system_correlations)
+        
         return CorrelationDiagnostic(
             level=overall_level, confidence=confidence, correlated_systems=system_correlations,
             correlated_params=param_correlations, recommendations=recommendations,
@@ -128,7 +129,11 @@ class CorrelationAnalyzer:
                     correlations[f"{sys1}-{sys2}"] = 0.0
                     continue
                 try:
-                    corr, _ = pearsonr(series1[:min_length], series2[:min_length])
+                    # [THE FIX] This block now ignores the "ConstantInputWarning"
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", ConstantInputWarning)
+                        corr, _ = pearsonr(series1[:min_length], series2[:min_length])
+                    
                     weighted_corr = corr * (self.SYSTEM_WEIGHTS[sys1] + self.SYSTEM_WEIGHTS[sys2]) / 2
                     correlations[f"{sys1}-{sys2}"] = max(0, weighted_corr) if not np.isnan(corr) else 0.0
                 except ValueError:
@@ -152,7 +157,11 @@ class CorrelationAnalyzer:
                     vals2.append(self._get_value(val2_obj))
             if len(vals1) >= 5:
                 try:
-                    corr, _ = pearsonr(vals1, vals2)
+                    # [THE FIX] This block now ignores the "ConstantInputWarning"
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", ConstantInputWarning)
+                        corr, _ = pearsonr(vals1, vals2)
+
                     results.append((param1, param2, max(0, corr) if not np.isnan(corr) else 0.0))
                 except ValueError:
                     results.append((param1, param2, 0.0))

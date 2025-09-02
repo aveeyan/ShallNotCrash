@@ -3,6 +3,7 @@ import numpy as np
 from scipy.interpolate import splprep, splev
 from typing import List
 import math
+import logging
 from ..data_models import Waypoint
 from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import haversine_distance_nm, calculate_bearing
@@ -35,60 +36,46 @@ def _calculate_turn_radius_constraint(p1: np.ndarray, p2: np.ndarray, p3: np.nda
 
 def smooth_path_3d(waypoints: List[Waypoint], aggressive: bool = False) -> List[Waypoint]:
     """
-    Enhanced path smoothing with physical turn radius constraints.
+    [UPGRADED] Smooths a 3D path using B-spline interpolation for a flyable trajectory.
     """
     if len(waypoints) < 3:
         return waypoints
     
-    # Convert to numpy array
+    # Convert to numpy array for numerical operations
     coords = np.array([(wp.lon, wp.lat, wp.alt_ft) for wp in waypoints])
     
-    # Remove duplicates
-    unique_coords, indices = np.unique(coords, axis=0, return_index=True)
-    if len(unique_coords) < 3:
+    # Remove consecutive duplicate points that can cause interpolation errors
+    unique_mask = np.concatenate(([True], np.any(np.diff(coords, axis=0) != 0, axis=1)))
+    coords = coords[unique_mask]
+    
+    if len(coords) < 3:
         return waypoints
         
-    control_points = unique_coords[np.argsort(indices)]
+    x, y, z = coords[:, 0], coords[:, 1], coords[:, 2]
     
-    # Check for physically impossible turns and adjust
-    adjusted_points = [control_points[0]]
-    for i in range(1, len(control_points) - 1):
-        current_point = control_points[i]
-        prev_point = adjusted_points[-1]
-        next_point = control_points[i + 1]
-        
-        if not _calculate_turn_radius_constraint(prev_point, current_point, next_point, AircraftProfile.GLIDE_SPEED_KTS):
-            # Turn is too sharp, insert intermediate point
-            mid_lat = (prev_point[1] + next_point[1]) / 2
-            mid_lon = (prev_point[0] + next_point[0]) / 2
-            mid_alt = (prev_point[2] + next_point[2]) / 2
-            intermediate_point = np.array([mid_lon, mid_lat, mid_alt])
-            adjusted_points.append(intermediate_point)
-        
-        adjusted_points.append(current_point)
-    
-    adjusted_points.append(control_points[-1])
-    adjusted_points = np.array(adjusted_points)
-    
-    # Continue with original smoothing but with gentler parameters
-    x, y, z = adjusted_points[:, 0], adjusted_points[:, 1], adjusted_points[:, 2]
-    
-    diffs = np.diff(adjusted_points, axis=0)
-    u = np.concatenate(([0], np.cumsum(np.linalg.norm(diffs, axis=1))))
+    # Parameterize the path based on cumulative distance
+    u = np.concatenate(([0], np.cumsum(np.linalg.norm(np.diff(coords, axis=0), axis=1))))
     
     if u[-1] == 0:
         return waypoints
     
-    k = min(2, len(x) - 1)  # Use quadratic splines for smoother curves
-    smoothing_factor = len(x) * 0.5  # More smoothing
+    # Use quadratic splines (k=2) for a good balance of smoothness and path adherence
+    k = min(2, len(x) - 1)
+    
+    # The smoothing factor 's' controls how closely the spline fits the waypoints.
+    # A larger 's' value creates a smoother path.
+    smoothing_factor = len(x) * 0.1
     
     try:
+        # Create the B-spline representation of the path
         tck, _ = splprep([x, y, z], u=u, s=smoothing_factor, k=k)
         
-        num_points = min(PlannerConstants.SMOOTHED_PATH_NUM_POINTS, len(waypoints) * 2)
+        # Evaluate the spline at a higher resolution to get the smooth path
+        num_points = PlannerConstants.SMOOTHED_PATH_NUM_POINTS
         u_new = np.linspace(0, u[-1], num_points)
         x_new, y_new, z_new = splev(u_new, tck)
         
+        # Convert the new coordinates back into Waypoint objects
         result_waypoints = []
         for lon, lat, alt in zip(x_new, y_new, z_new):
             wp = Waypoint(lat=lat, lon=lon, alt_ft=alt, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
@@ -97,8 +84,9 @@ def smooth_path_3d(waypoints: List[Waypoint], aggressive: bool = False) -> List[
         return result_waypoints
         
     except Exception as e:
+        # If spline fitting fails for any reason, return the original (unsmoothed) path
+        logging.warning(f"Path smoothing failed: {e}. Returning raw path.")
         return waypoints
-
 def _chaikin_pre_smooth(points: np.ndarray, iterations: int = 2) -> np.ndarray:
     """Gentle Chaikin smoothing with reduced aggressiveness."""
     if len(points) < 2:

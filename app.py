@@ -10,6 +10,8 @@ from flask import Flask, render_template, jsonify, request
 from pprint import pformat # [FIX] Added the missing import for the console debugger.
 
 # Core Application Imports
+from shallnotcrash.landing_site.core import LandingSiteFinder
+from shallnotcrash.landing_site.terrain_analyzer import TerrainAnalyzer
 from helpers.flightgear import telemetry_worker, find_fgfs_executable
 from helpers.map_helpers import load_sites_as_geojson, generate_realtime_path
 
@@ -25,7 +27,8 @@ state = {
         'anomaly_scores': {}, 'raw_telemetry': {}, 'system_status': {},
         'timestamp': time.time()
     },
-    'landing_sites_cache': []
+    'landing_sites_cache': [],
+    'terrain_analyzer': None 
 }
 
 app = Flask(__name__)
@@ -34,6 +37,25 @@ log.setLevel(logging.ERROR)
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 SITES_CACHE_PATH = os.path.join(PROJECT_ROOT, "cache", "sites_cache.json")
+
+def get_or_create_terrain_analyzer() -> TerrainAnalyzer:
+    """
+    Initializes the TerrainAnalyzer on the first call and caches it in the global state.
+    This version initializes the analyzer directly for elevation lookups, avoiding
+    unnecessary network calls.
+    """
+    if state.get('terrain_analyzer') is None:
+        logging.info("Initializing TerrainAnalyzer for elevation lookups...")
+        try:
+            dem_dir_path = os.path.join(PROJECT_ROOT, "shallnotcrash", "landing_site", "osm", "rasters")
+            # Initialize directly, passing an empty list for obstacles as they are not needed for planning.
+            analyzer = TerrainAnalyzer(all_nearby_elements=[], dem_dir_path=dem_dir_path)
+            state['terrain_analyzer'] = analyzer
+            logging.info("TerrainAnalyzer initialized and cached.")
+        except Exception as e:
+            logging.error(f"Failed to initialize TerrainAnalyzer: {e}", exc_info=True)
+            return None
+    return state['terrain_analyzer']
 
 # --- Console Debugger ---
 def console_debug_worker():
@@ -95,27 +117,37 @@ def find_sites_route():
     
 @app.route('/plan_path', methods=['POST'])
 def plan_path():
+    # --- THIS ROUTE IS REWRITTEN ---
     data = request.json
     site_id = data.get('site_id')
+    
     if site_id is None: return jsonify({'error': 'site_id is required.'}), 400
+    
     success, message = load_sites_from_cache()
     if not success: return jsonify({'error': message}), 500
+    
     if not isinstance(site_id, int) or not (0 <= site_id < len(state['landing_sites_cache'])):
         return jsonify({'error': 'Invalid site_id.'}), 400
-    from shallnotcrash.landing_site.core import LandingSiteFinder
-    terrain_analyzer = None
+    
+    # Get the cached analyzer instead of re-creating it
+    terrain_analyzer = get_or_create_terrain_analyzer()
+    if not terrain_analyzer:
+        return jsonify({'error': 'Terrain analyzer could not be initialized.'}), 500
+        
     try:
-        finder = LandingSiteFinder()
-        dem_dir_path = os.path.join(PROJECT_ROOT, "shallnotcrash", "landing_site", "osm", "rasters")
-        _, terrain_analyzer = finder.find_sites(state['last_good_telemetry']['lat'], state['last_good_telemetry']['lng'], dem_dir_path)
-        path_data = generate_realtime_path(terrain_analyzer, state['landing_sites_cache'], state['last_good_telemetry'], site_id)
+        # Pass the cached analyzer directly to the path generation function
+        path_data = generate_realtime_path(
+            terrain_analyzer, 
+            state['landing_sites_cache'], 
+            state['last_good_telemetry'], 
+            site_id
+        )
         return jsonify(path_data) if path_data else (jsonify({'error': 'Path could not be generated.'}), 500)
     except Exception as e:
         logging.error(f"Path planning error: {e}", exc_info=True)
         return jsonify({'error': 'Path planning failed.'}), 500
-    finally:
-        if terrain_analyzer: terrain_analyzer.close_dem_sources()
-            
+    # No finally block needed as we are not closing the analyzer anymore.
+    #            
 @app.route('/launch_fg', methods=['POST'])
 def launch_fg():
     fg_executable = find_fgfs_executable()

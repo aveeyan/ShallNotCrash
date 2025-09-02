@@ -8,7 +8,7 @@ online bottleneck for maximum performance.
 import logging
 import math
 import os
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 import rasterio
@@ -40,7 +40,35 @@ class TerrainAnalyzer:
         
         logging.info(f"TerrainAnalyzer initialized. Indexed {len(self.obstacle_index)} obstacle cells. Using {len(self.dem_sources)} DEM files.")
 
+    # [FIX] Add the missing get_elevation_m method.
+    def get_elevation_m(self, lat: float, lon: float) -> Optional[float]:
+        """Queries the elevation in meters for a single coordinate from local DEM files."""
+        if not self.dem_sources:
+            return None
+
+        point = [(lon, lat)] # Rasterio expects (lon, lat) order
+        
+        for src in self.dem_sources:
+            try:
+                # Check if the point is within the bounds of this DEM file
+                if not (src.bounds.left <= lon <= src.bounds.right and 
+                        src.bounds.bottom <= lat <= src.bounds.top):
+                    continue # Skip to the next file
+                
+                # Sample the point
+                for val in src.sample(point):
+                    elevation = val[0]
+                    # Check for common no-data values before returning
+                    if elevation > -1000: 
+                        return float(elevation)
+            except Exception as e:
+                logging.debug(f"Error sampling point ({lat}, {lon}) from a DEM source: {e}")
+        
+        # If no DEM contained the point or all had no-data values
+        return None
+
     def _get_terrain_slope(self, lat: float, lon: float) -> Tuple[int, float]:
+        # ... (rest of the file is unchanged)
         """[FULLY OFFLINE] Calculates ground slope using local DEM files."""
         if not self.dem_sources:
             return 100, 0.0 # Assume flat if no DEM data is available
@@ -59,11 +87,16 @@ class TerrainAnalyzer:
             # Extract elevation values from the first DEM source that covers the points
             elevations = []
             for src in self.dem_sources:
+                # Check if the central point is within bounds first as an optimization
+                if not (src.bounds.left <= lon <= src.bounds.right and 
+                        src.bounds.bottom <= lat <= src.bounds.top):
+                    continue
+
                 for val in src.sample(sample_points):
                     if val[0] > -1000: # Filter out common no-data values
                         elevations.append(val[0])
-                if len(elevations) == 5:
-                    break # We have all 5 points from this DEM file
+                if len(elevations) >= 1: # If we got any data, assume this is the right file
+                    break 
             
             if len(elevations) < 5:
                 return 0, 99.0 # Return high slope if data is incomplete
@@ -163,3 +196,4 @@ class TerrainAnalyzer:
         a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
+    

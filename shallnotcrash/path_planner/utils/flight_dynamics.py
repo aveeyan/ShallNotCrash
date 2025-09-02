@@ -1,7 +1,7 @@
 # shallnotcrash/path_planner/utils/flight_dynamics.py
 import math
 from typing import List, Tuple
-from ..data_models import AircraftState
+from ..data_models import AircraftState, Waypoint
 from ..constants import PlannerConstants, AircraftProfile
 from .coordinates import destination_point, calculate_bearing
 from .calculations import calculate_turn_radius
@@ -90,3 +90,47 @@ def get_reachable_states(current_state: AircraftState, distance_to_goal_nm: floa
 def get_minimum_turn_radius_nm(airspeed_kts: float) -> float:
     """Calculate minimum turn radius for the aircraft at given airspeed."""
     return calculate_turn_radius(airspeed_kts)
+
+# [NEW] Generates the waypoints for a smooth, constant-radius turn.
+def generate_turn_arc(start_state: AircraftState, target_bearing_deg: float, 
+                      turn_radius_nm: float, turn_direction: str) -> Tuple[List[Waypoint], Waypoint, float]:
+    """
+    Generates a list of waypoints representing a circular turn arc.
+    Returns the waypoints, the final state at the end of the turn, and the arc distance.
+    """
+    waypoints = []
+    heading_diff = (target_bearing_deg - start_state.heading_deg + 360) % 360
+    
+    if turn_direction == 'right' and heading_diff < 180 and heading_diff != 0:
+        turn_angle_deg = heading_diff
+    elif turn_direction == 'left' and heading_diff > 180:
+        turn_angle_deg = heading_diff - 360
+    elif turn_direction == 'left':
+        turn_angle_deg = -((360 - heading_diff) % 360)
+    else: # right
+        turn_angle_deg = (360 + heading_diff) % 360 if heading_diff < 180 else heading_diff
+
+    arc_distance_nm = abs(math.radians(turn_angle_deg)) * turn_radius_nm
+    num_segments = max(2, int(abs(turn_angle_deg) / 15)) # Waypoint every ~15 degrees
+    
+    current_heading = start_state.heading_deg
+    current_lat, current_lon = start_state.lat, start_state.lon
+    
+    for i in range(1, num_segments + 1):
+        segment_angle = turn_angle_deg / num_segments
+        avg_heading = (current_heading + (segment_angle / 2)) % 360
+        segment_dist = arc_distance_nm / num_segments
+        
+        new_lat, new_lon = destination_point(current_lat, current_lon, avg_heading, segment_dist)
+        current_heading = (current_heading + segment_angle) % 360
+        
+        # Altitude is handled later, use placeholder for now
+        waypoints.append(Waypoint(lat=new_lat, lon=new_lon, alt_ft=0, airspeed_kts=start_state.airspeed_kts))
+        current_lat, current_lon = new_lat, new_lon
+
+    final_state = AircraftState(
+        lat=current_lat, lon=current_lon, alt_ft=start_state.alt_ft, # Placeholder alt
+        heading_deg=target_bearing_deg, airspeed_kts=start_state.airspeed_kts
+    )
+    
+    return waypoints, final_state, arc_distance_nm

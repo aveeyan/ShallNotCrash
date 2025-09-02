@@ -254,31 +254,34 @@
         if (selectedSiteId !== null) {
             const oldLayer = mapSiteLayers[selectedSiteId];
             if (oldLayer) oldLayer.setStyle({ weight: 2, color: oldLayer.feature.properties.display_color, opacity: 0.6 });
-            document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`).classList.remove('selected');
+            const oldListItem = document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`);
+            if (oldListItem) oldListItem.classList.remove('selected');
         }
 
         // Apply new selection visually
         selectedSiteId = feature.properties.id;
-        document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`).classList.add('selected');
+        const newListItem = document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`);
+        if (newListItem) newListItem.classList.add('selected');
+        
         layer.setStyle({ weight: 5, color: 'var(--color-highlight)', opacity: 1 }); // Persistent selected style
         layer.bringToFront();
 
+        // Call the original function for the FIRST plan
         planAndDisplayPath(selectedSiteId);
     }
     
     function planAndDisplayPath(siteId) {
-        isFollowingPlane = false; // Stop following plane when a path is being planned/displayed
+        // This function now handles the INITIAL path display and fits the view.
+        isFollowingPlane = false; 
         fetch('/plan_path', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: siteId }) })
         .then(res => res.ok ? res.json() : Promise.reject('Path planning failed')).then(data => {
             if (data && data.waypoints && data.waypoints.length > 0) {
                 if (flightPathLayer) flightPathLayer.remove();
                 flightPathLayer = L.polyline(data.waypoints, { color: '#00FFFF', weight: 4, opacity: 0.9, dashArray: '5, 10' }).addTo(map);
+                
+                // Fit bounds only on the first click
                 map.fitBounds(L.latLngBounds([planeMarker.getLatLng(), ...data.waypoints]).pad(0.2));
             }
-        }).finally(() => {
-            // [FIX] Recenter on plane after path planning
-            map.setView(planeMarker.getLatLng(), map.getZoom(), {animate: true, duration: 1.0});
-            isFollowingPlane = true; // Resume following the plane
         });
     }
 
@@ -300,6 +303,28 @@
 
     ui.findSitesBtn.addEventListener('click', findAndDisplaySites);
     setInterval(() => { fetch('/position').then(r => r.json()).then(updateHUD); }, 500);
+
+     function updatePath() {
+        // If no site is selected, do nothing.
+        if (selectedSiteId === null) return;
+
+        // This function will silently update the path without moving the camera.
+        fetch('/plan_path', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: selectedSiteId }) })
+        .then(res => res.ok ? res.json() : Promise.resolve(null)) // Don't throw error on failure
+        .then(data => {
+            if (data && data.waypoints && data.waypoints.length > 0) {
+                // If a path layer exists, just update its coordinates. Otherwise, create it.
+                if (flightPathLayer) {
+                    flightPathLayer.setLatLngs(data.waypoints);
+                } else {
+                    flightPathLayer = L.polyline(data.waypoints, { color: '#00FFFF', weight: 4, opacity: 0.9, dashArray: '5, 10' }).addTo(map);
+                }
+            }
+        });
+    }
+
+    setInterval(updatePath, 2500);
+
 </script>
 </body>
 </html>

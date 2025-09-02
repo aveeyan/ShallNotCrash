@@ -10,6 +10,8 @@ from flask import Flask, render_template, jsonify, request
 from pprint import pformat # [FIX] Added the missing import for the console debugger.
 
 # Core Application Imports
+from shallnotcrash.path_planner.data_models import Waypoint
+from shallnotcrash.autopilot.guidance import calculate_guidance_commands
 from shallnotcrash.landing_site.core import LandingSiteFinder
 from shallnotcrash.landing_site.terrain_analyzer import TerrainAnalyzer
 from helpers.flightgear import telemetry_worker, find_fgfs_executable
@@ -28,7 +30,8 @@ state = {
         'timestamp': time.time()
     },
     'landing_sites_cache': [],
-    'terrain_analyzer': None 
+    'terrain_analyzer': None,
+    'active_flight_path': None
 }
 
 app = Flask(__name__)
@@ -139,12 +142,34 @@ def plan_path():
             state['last_good_telemetry'], 
             site_id
         )
+        # [ADD THIS BLOCK] Store the generated path in the global state
+        if path_data and path_data.get('waypoints'):
+            state['active_flight_path'] = [
+                Waypoint(lat=p[0], lon=p[1], alt_ft=0, airspeed_kts=0) # Note: Alt/Speed not needed for guidance calc
+                for p in path_data['waypoints']
+            ]
         return jsonify(path_data) if path_data else (jsonify({'error': 'Path could not be generated.'}), 500)
     except Exception as e:
         logging.error(f"Path planning error: {e}", exc_info=True)
         return jsonify({'error': 'Path planning failed.'}), 500
-    # No finally block needed as we are not closing the analyzer anymore.
-    #            
+
+@app.route('/guidance')
+def guidance_route():
+    if not state['active_flight_path']:
+        return jsonify({"error": "No active flight path"}), 404
+    
+    from shallnotcrash.path_planner.data_models import AircraftState
+    aircraft_state = AircraftState(
+        lat=state['last_good_telemetry']['lat'],
+        lon=state['last_good_telemetry']['lng'],
+        alt_ft=state['last_good_telemetry']['altitude'],
+        heading_deg=state['last_good_telemetry']['heading'],
+        airspeed_kts=state['last_good_telemetry']['speed']
+    )
+    
+    guidance_commands = calculate_guidance_commands(aircraft_state, state['active_flight_path'])
+    return jsonify(guidance_commands)
+
 @app.route('/launch_fg', methods=['POST'])
 def launch_fg():
     fg_executable = find_fgfs_executable()

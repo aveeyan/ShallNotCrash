@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generated_at": "2025-09-02T09:52:29.689531",
+    "generated_at": "2025-09-02T10:55:42.320332",
     "search_center": {
       "lat": 63.985,
       "lon": -22.6056
@@ -48,20 +48,71 @@
       "elevation_m": null,
       "display_color": "#00008B",
       "precomputed_faf": {
-        "lat": 63.91451872057102,
-        "lon": -22.60548188398908,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.96448502346019,
+        "lon": -22.60544550887418,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
         "lat": 63.96448502346019,
         "lon": -22.60544550887418,
         "alt_ft": 0.0,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 0.018340777788409923
+      "precomputed_approach_hdg": 0.018340777788409923,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.96448502346019,
+          "lon": -22.60544550887418,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.91451872057102,
+          "lon": -22.60548188398908,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.04362567559399,
+          "lon": -22.500193789052254,
+          "alt_ft": 1751.3977572149977,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.0058326951434,
+          "lon": -22.44063310294933,
+          "alt_ft": 1592.1797792863617,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.964224817472434,
+          "lon": -22.43469165119756,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.93102671174972,
+          "lon": -22.474270626116436,
+          "alt_ft": 1273.7438234290894,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.913958899438306,
+          "lon": -22.539266325498687,
+          "alt_ft": 1114.5258455004532,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.985042565,
@@ -102,20 +153,71 @@
       "elevation_m": null,
       "display_color": "#8B0000",
       "precomputed_faf": {
-        "lat": 63.98503337014488,
-        "lon": -22.478469639886256,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.985047561232456,
+        "lon": -22.592390408800142,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
         "lat": 63.985047561232456,
         "lon": -22.592390408800142,
         "alt_ft": 0.0,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 269.96508361076565
+      "precomputed_approach_hdg": 269.96508361076565,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.985047561232456,
+          "lon": -22.592390408800142,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.98503337014488,
+          "lon": -22.478469639886256,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.03119815767604,
+          "lon": -22.77295248237755,
+          "alt_ft": 1751.3977572149977,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.05732482322092,
+          "lon": -22.686823395014336,
+          "alt_ft": 1592.1797792863617,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.05999662443952,
+          "lon": -22.591834909148677,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.04265831961696,
+          "lon": -22.516028399817625,
+          "alt_ft": 1273.7438234290894,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.01411486078084,
+          "lon": -22.477124383416633,
+          "alt_ft": 1114.5258455004532,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.94260948000001,
@@ -156,20 +258,71 @@
       "elevation_m": null,
       "display_color": "#8B0000",
       "precomputed_faf": {
-        "lat": 63.8993422036599,
-        "lon": -22.54939066620854,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.94419561710652,
+        "lon": -22.481930809188555,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
-        "lat": 63.94102330356046,
-        "lon": -22.486710280217352,
+        "lat": 63.94419561710652,
+        "lon": -22.481930809188555,
         "alt_ft": 0.0,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 33.497179978712154
+      "precomputed_approach_hdg": 213.49717997871215,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.94419561710652,
+          "lon": -22.481930809188555,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.985849573725744,
+          "lon": -22.419056581071604,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.919298595142905,
+          "lon": -22.28132005163011,
+          "alt_ft": 1751.3977572149977,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.94226417089982,
+          "lon": -22.29239721851947,
+          "alt_ft": 1592.1797792863617,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.961206149830105,
+          "lon": -22.31570113523478,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.975029332667944,
+          "lon": -22.34740579930004,
+          "alt_ft": 1273.7438234290894,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.98321844849593,
+          "lon": -22.383270394896854,
+          "alt_ft": 1114.5258455004532,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.00971518571428,
@@ -281,7 +434,7 @@
         "lat": 63.96793324702268,
         "lon": -22.573372898996315,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -291,7 +444,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 339.7843847988566
+      "precomputed_approach_hdg": 339.7843847988566,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.96793324702268,
+          "lon": -22.573372898996315,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.0148269,
+          "lon": -22.6127146,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.02982701666667,
@@ -340,10 +509,10 @@
       "elevation_m": null,
       "display_color": "#006400",
       "precomputed_faf": {
-        "lat": 64.00236472848408,
-        "lon": -22.51750415095434,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 64.0313423,
+        "lon": -22.6104163,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -353,7 +522,44 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 305.4047078066556
+      "precomputed_approach_hdg": 305.4047078066556,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 64.0313423,
+          "lon": -22.6104163,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.00236472848408,
+          "lon": -22.51750415095434,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.03667730167142,
+          "lon": -22.411077148772552,
+          "alt_ft": 1671.7887682506798,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.01899044978217,
+          "lon": -22.441629394257404,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.00747441846487,
+          "lon": -22.47866117457698,
+          "alt_ft": 1194.1348344647713,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.933384605263164,
@@ -454,10 +660,10 @@
       "elevation_m": null,
       "display_color": "#1C1C1C",
       "precomputed_faf": {
-        "lat": 63.97721309183788,
-        "lon": -22.435012257186575,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.9274425,
+        "lon": -22.4249509,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -467,7 +673,44 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 174.93167485469007
+      "precomputed_approach_hdg": 174.93167485469007,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.9274425,
+          "lon": -22.4249509,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.97721309183788,
+          "lon": -22.435012257186575,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.00178798361,
+          "lon": -22.320083121805077,
+          "alt_ft": 1671.7887682506798,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.9981017573939,
+          "lon": -22.36801150645441,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.98940774686315,
+          "lon": -22.407117835918573,
+          "alt_ft": 1194.1348344647713,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.0219869142857,
@@ -548,10 +791,10 @@
       "elevation_m": null,
       "display_color": "#1C1C1C",
       "precomputed_faf": {
-        "lat": 64.0026078444035,
-        "lon": -22.52726272324505,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 64.0231448,
+        "lon": -22.6312196,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -561,7 +804,44 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 294.22194712566255
+      "precomputed_approach_hdg": 294.22194712566255,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 64.0231448,
+          "lon": -22.6312196,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.0026078444035,
+          "lon": -22.52726272324505,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.04241297030029,
+          "lon": -22.436425976797167,
+          "alt_ft": 1671.7887682506798,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.02366033054365,
+          "lon": -22.460107673380076,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.01022501818913,
+          "lon": -22.491740690568314,
+          "alt_ft": 1194.1348344647713,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.0598387138889,
@@ -730,10 +1010,10 @@
       "elevation_m": null,
       "display_color": "#1C1C1C",
       "precomputed_faf": {
-        "lat": 64.03128893806274,
-        "lon": -22.735339538556882,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 64.0711146,
+        "lon": -22.6663781,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -743,7 +1023,44 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 37.18166851167473
+      "precomputed_approach_hdg": 37.18166851167473,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 64.0711146,
+          "lon": -22.6663781,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.03128893806274,
+          "lon": -22.735339538556882,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.05269758255275,
+          "lon": -22.861804712623982,
+          "alt_ft": 1671.7887682506798,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.03858520593475,
+          "lon": -22.820711120399455,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.03156715903718,
+          "lon": -22.776858477535352,
+          "alt_ft": 1194.1348344647713,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.91323165263158,
@@ -844,10 +1161,10 @@
       "elevation_m": null,
       "display_color": "#1C1C1C",
       "precomputed_faf": {
-        "lat": 63.95845287205933,
-        "lon": -22.426327830962034,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.9085667,
+        "lon": -22.4198904,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -857,7 +1174,37 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 176.75752283969837
+      "precomputed_approach_hdg": 176.75752283969837,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.9085667,
+          "lon": -22.4198904,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.95845287205933,
+          "lon": -22.426327830962034,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.98346101323481,
+          "lon": -22.33698539258919,
+          "alt_ft": 1592.1797792863617,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.9738882927478,
+          "lon": -22.390075300780794,
+          "alt_ft": 1273.7438234290894,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.96245424333335,
@@ -1005,7 +1352,7 @@
         "lat": 63.968155787607444,
         "lon": -22.538233500785566,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1015,7 +1362,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 96.9208514466394
+      "precomputed_approach_hdg": 96.9208514466394,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.968155787607444,
+          "lon": -22.538233500785566,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.9621789,
+          "lon": -22.425211,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.01780426470589,
@@ -1111,7 +1474,7 @@
         "lat": 63.97363235319233,
         "lon": -22.575026008731573,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1121,7 +1484,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 338.1202969356168
+      "precomputed_approach_hdg": 338.1202969356168,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.97363235319233,
+          "lon": -22.575026008731573,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.0200057,
+          "lon": -22.6174623,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.966106272727274,
@@ -1193,7 +1572,7 @@
         "lat": 63.9768936219002,
         "lon": -22.583037014830996,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1203,7 +1582,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 104.0998266182641
+      "precomputed_approach_hdg": 104.0998266182641,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.9768936219002,
+          "lon": -22.583037014830996,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.9647632,
+          "lon": -22.4725805,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 64.04798482615384,
@@ -1491,7 +1886,7 @@
         "lat": 64.01573916144235,
         "lon": -22.580166215991824,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1501,7 +1896,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 334.9039680957613
+      "precomputed_approach_hdg": 334.9039680957613,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 64.01573916144235,
+          "lon": -22.580166215991824,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 64.0609966,
+          "lon": -22.6285373,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.837362383333335,
@@ -1574,10 +1985,10 @@
       "elevation_m": null,
       "display_color": "#1C1C1C",
       "precomputed_faf": {
-        "lat": 63.862586099737634,
-        "lon": -22.372720497068247,
-        "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "lat": 63.8355442,
+        "lon": -22.4680523,
+        "alt_ft": 0.0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1587,7 +1998,58 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 237.191675425423
+      "precomputed_approach_hdg": 237.191675425423,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.8355442,
+          "lon": -22.4680523,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.862586099737634,
+          "lon": -22.372720497068247,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.785193206743905,
+          "lon": -22.294658795535096,
+          "alt_ft": 1751.3977572149977,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.80688392389348,
+          "lon": -22.29082039478611,
+          "alt_ft": 1592.1797792863617,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.82652487975414,
+          "lon": -22.299341466821172,
+          "alt_ft": 1432.9618013577256,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.842868090377664,
+          "lon": -22.31786132408166,
+          "alt_ft": 1273.7438234290894,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.855039246728985,
+          "lon": -22.343419761781632,
+          "alt_ft": 1114.5258455004532,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     },
     {
       "lat": 63.966321275,
@@ -1679,7 +2141,7 @@
         "lat": 63.97669505399654,
         "lon": -22.583165904945776,
         "alt_ft": 955.3078675718172,
-        "airspeed_kts": 0,
+        "airspeed_kts": 65,
         "notes": null
       },
       "precomputed_threshold": {
@@ -1689,7 +2151,23 @@
         "airspeed_kts": 65,
         "notes": null
       },
-      "precomputed_approach_hdg": 104.07611128706304
+      "precomputed_approach_hdg": 104.07611128706304,
+      "precomputed_approach_waypoints": [
+        {
+          "lat": 63.97669505399654,
+          "lon": -22.583165904945776,
+          "alt_ft": 955.3078675718172,
+          "airspeed_kts": 65,
+          "notes": null
+        },
+        {
+          "lat": 63.9645847,
+          "lon": -22.4726987,
+          "alt_ft": 0.0,
+          "airspeed_kts": 65,
+          "notes": null
+        }
+      ]
     }
   ]
 }

@@ -70,54 +70,23 @@ def clear_planner_cache():
     _planner_cache.clear()
     logging.info("Planner cache cleared.")
 
+# In helpers/map_helpers.py, modify the generate_realtime_path function
 def generate_realtime_path(terrain_analyzer, sites_cache: List[dict], telemetry: dict, site_id: int, use_smart_caching: bool = True):
-    """
-    Generate a path with optional smart caching.
-    
-    Args:
-        use_smart_caching: If True, uses the enhanced planner with runway selection caching.
-                          If False, falls back to precomputed approach method.
-    """
+    # ... (existing code to get site_dict, aircraft_state, and planner) ...
     try:
         site_dict = sites_cache[site_id]
         
-        # Create the AircraftState object
         aircraft_state = AircraftState(
             lat=telemetry['lat'], lon=telemetry['lng'], alt_ft=telemetry['altitude'],
             heading_deg=telemetry['heading'], airspeed_kts=telemetry['speed']
         )
         
-        if use_smart_caching:
-            # [NEW] Use the enhanced planner with runway caching
-            logging.info(f"Generating smart-cached path to site {site_id}")
-            
-            # Convert site_dict back to LandingSite object for the enhanced planner
-            landing_site = _dict_to_landing_site(site_dict)
-            
-            # Get cached planner (maintains runway selection state)
-            planner = _get_or_create_planner(terrain_analyzer, f"site_{site_id}")
-            
-            # Generate path using the enhanced algorithm
-            flight_path = planner.generate_path_to_site(aircraft_state, landing_site)
-            
-        else:
-            # [FALLBACK] Use the original precomputed method for maximum speed
-            logging.info(f"Generating precomputed path to site {site_id}")
-            
-            # Check if the pre-computed data exists in the cache
-            if 'precomputed_faf' not in site_dict or 'precomputed_threshold' not in site_dict:
-                logging.error(f"Site ID {site_id} is missing pre-computed approach data. Please regenerate the cache.")
-                return None
-
-            # Re-hydrate the pre-computed waypoints from the cache dictionary
-            faf_waypoint = Waypoint(**site_dict['precomputed_faf'])
-            threshold_waypoint = Waypoint(**site_dict['precomputed_threshold'])
-            
-            # Use a simple planner for precomputed paths
-            planner = PathPlanner(terrain_analyzer=terrain_analyzer)
-            flight_path = planner.generate_path_from_precomputed(
-                aircraft_state, faf_waypoint, threshold_waypoint
-            )
+        planner_id = str(site_id) if use_smart_caching else "default"
+        planner = _get_or_create_planner(terrain_analyzer, planner_id)
+        
+        landing_site = _dict_to_landing_site(site_dict)
+        
+        flight_path = planner.generate_path_to_site(aircraft_state, landing_site)
         
         if flight_path:
             waypoints_json = [[wp.lat, wp.lon] for wp in flight_path.waypoints]
@@ -125,24 +94,23 @@ def generate_realtime_path(terrain_analyzer, sites_cache: List[dict], telemetry:
                 'waypoints': waypoints_json,
                 'total_distance_nm': flight_path.total_distance_nm,
                 'estimated_time_min': flight_path.estimated_time_min,
-                'emergency_profile': flight_path.emergency_profile
+                'emergency_profile': flight_path.emergency_profile,
+                # [FIX] Conditionally include approach info only if it exists
+                'approach_info': None 
             }
-            
-            # Add runway selection info if available
-            if hasattr(planner, '_cached_runway_selection') and planner._cached_runway_selection:
-                _, _, approach_heading = planner._cached_runway_selection
-                path_info['approach_heading'] = approach_heading
-                path_info['runway_cached'] = True
+            if hasattr(flight_path, 'faf_waypoint'):
+                 path_info['approach_info'] = {
+                    'faf_waypoint': [flight_path.faf_waypoint.lat, flight_path.faf_waypoint.lon],
+                    'threshold_waypoint': [flight_path.threshold_waypoint.lat, flight_path.threshold_waypoint.lon],
+                    'approach_heading': flight_path.approach_heading
+                }
             
             return path_info
 
-    except IndexError:
-        logging.error(f"Invalid site_id '{site_id}' requested for path planning.")
     except Exception as e:
         logging.error(f"Path planning failed: {e}", exc_info=True)
     
     return None
-
 def _dict_to_landing_site(site_dict: dict) -> LandingSite:
     """Convert a site dictionary back to a LandingSite object."""
     safety_report = None

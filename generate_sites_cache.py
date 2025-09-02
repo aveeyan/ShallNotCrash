@@ -62,11 +62,11 @@ def main():
         results_obj, analyzer = finder.find_sites(SEARCH_LAT, SEARCH_LON, dem_dir_path)
         logging.info(f"Found {len(results_obj.landing_sites)} raw sites.")
         
-        # --- [NEW] Pre-compute and cache the approach waypoints for each site ---
         logging.info("[3] Pre-computing optimal approach waypoints for each site...")
         final_sites = []
-        # A dummy aircraft state is needed for the approach calculation logic
         dummy_state = AircraftState(lat=SEARCH_LAT, lon=SEARCH_LON, alt_ft=5000, heading_deg=180, airspeed_kts=70)
+# generate_sites_cache.py (partial update)
+# ... existing code ...
 
         for site in results_obj.landing_sites:
             site_dict = site.__dict__
@@ -78,15 +78,29 @@ def main():
             # Calculate the best approach for this site
             approach_data = select_optimal_landing_approach(site, dummy_state)
             if approach_data:
-                faf_waypoint, threshold_waypoint, approach_hdg = approach_data
-                # Convert Waypoint objects to simple dictionaries for JSON serialization
+                # [FIX] Handle both old and new return formats
+                if len(approach_data) == 3:
+                    # Old format: (faf, threshold, approach_heading)
+                    faf_waypoint, threshold_waypoint, approach_hdg = approach_data
+                    approach_waypoints = None
+                else:
+                    # New format: (faf, threshold, approach_heading, approach_waypoints)
+                    faf_waypoint, threshold_waypoint, approach_hdg, approach_waypoints = approach_data
+                
+                # Store both individual waypoints and the full approach path
                 site_dict['precomputed_faf'] = faf_waypoint.__dict__
                 site_dict['precomputed_threshold'] = threshold_waypoint.__dict__
                 site_dict['precomputed_approach_hdg'] = approach_hdg
+                
+                # Store the full approach waypoints if available
+                if approach_waypoints:
+                    site_dict['precomputed_approach_waypoints'] = [wp.__dict__ for wp in approach_waypoints]
+                
                 final_sites.append(site_dict)
             else:
                 logging.warning(f"Could not compute approach for site at ({site.lat}, {site.lon}). Skipping.")
 
+        # ... rest of the function ...
         analyzer.close_dem_sources()
         
         # Sort by suitability score as before

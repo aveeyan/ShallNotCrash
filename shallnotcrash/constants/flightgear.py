@@ -88,6 +88,7 @@ class FGProps:
         ALTITUDE_FT = "/position/altitude-ft"
         ALTITUDE_AGL_FT = "/position/altitude-agl-ft"
         GROUND_ELEV_FT = "/position/ground-elev-ft"
+        YAW_RATE_DEGPS = "/orientation/yaw-rate-degps"
         
         # Attitude
         PITCH_DEG = "/orientation/pitch-deg"
@@ -114,7 +115,8 @@ class FGProps:
         # Motion
         AIRSPEED_KT = "/velocities/airspeed-kt"
         VERTICAL_SPEED_FPS = "/velocities/vertical-speed-fps"
-        ACCEL_Z = "/accelerations/pilot/z-accel-fps_sec"  # For stall detection
+        ACCEL_Z = "/accelerations/pilot/z-accel-fps_sec"
+        G_LOAD = "/accelerations/pilot-g"  # For stall detection
 
     #--------------------------
     # ELECTRICAL SYSTEM

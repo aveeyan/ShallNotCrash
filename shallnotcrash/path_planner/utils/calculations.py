@@ -6,13 +6,13 @@ aligned with the unified data models. The obsolete `calculate_final_approach_pat
 function has been removed.
 """
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # --- [CHANGED] Correctly import dependencies from other modules ---
 # The invalid 'Runway' import has been removed.
 from ..data_models import AircraftState, Waypoint
 from ..constants import PlannerConstants, AircraftProfile
-from .coordinates import haversine_distance_nm, get_destination_point
+from .coordinates import haversine_distance_nm, calculate_bearing
 
 # --- Existing, correct functions ---
 
@@ -23,8 +23,11 @@ def calculate_path_distance(waypoints: List[Waypoint]) -> float:
         distance += haversine_distance_nm(waypoints[i].lat, waypoints[i].lon, waypoints[i+1].lat, waypoints[i+1].lon)
     return distance
 
-def calculate_heuristic(state: AircraftState, goal: Waypoint) -> float:
-    """Calculates a physically-grounded estimate of the true remaining path cost."""
+# shallnotcrash/path_planner/utils/calculations.py
+# ... existing code ...
+
+def calculate_heuristic(state: AircraftState, goal: Waypoint, target_heading: Optional[float] = None) -> float:
+    """Enhanced heuristic that considers altitude, distance, and optional heading alignment."""
     distance_to_goal_nm = haversine_distance_nm(state.lat, state.lon, goal.lat, goal.lon)
     altitude_to_lose_ft = state.alt_ft - goal.alt_ft
     
@@ -34,7 +37,19 @@ def calculate_heuristic(state: AircraftState, goal: Waypoint) -> float:
         min_glide_dist_ft = altitude_to_lose_ft * AircraftProfile.GLIDE_RATIO
         min_glide_dist_nm = min_glide_dist_ft / PlannerConstants.FEET_PER_NAUTICAL_MILE
     
-    return max(distance_to_goal_nm, min_glide_dist_nm)
+    base_heuristic = max(distance_to_goal_nm, min_glide_dist_nm)
+    
+    # Add heading alignment penalty if target heading is provided
+    if target_heading is not None and distance_to_goal_nm < 20.0:
+        current_bearing = calculate_bearing(state.lat, state.lon, goal.lat, goal.lon)
+        heading_diff = abs(current_bearing - target_heading)
+        if heading_diff > 180:
+            heading_diff = 360 - heading_diff
+        
+        alignment_penalty = (heading_diff / 180.0) * (1.0 - (distance_to_goal_nm / 20.0)) * 3.0
+        return base_heuristic + alignment_penalty
+    
+    return base_heuristic
 
 def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Waypoint, Waypoint, float]:
     """Finds the longest possible straight line within a polygon."""
@@ -74,6 +89,19 @@ def calculate_turn_radius(airspeed_kts: float, bank_angle_deg: float = AircraftP
 # The 'calculate_final_approach_path' function was deleted. Its logic was incorrect
 # and has been superseded by the 'select_optimal_landing_approach' function in touchdown.py,
 # which the core PathPlanner already uses.
+def calculate_max_turn_rate(airspeed_kts: float, bank_angle_deg: float = AircraftProfile.STANDARD_BANK_ANGLE_DEG) -> float:
+    """Calculate maximum turn rate in degrees per second."""
+    if bank_angle_deg == 0:
+        return 0.0
+        
+    turn_radius_nm = calculate_turn_radius(airspeed_kts, bank_angle_deg)
+    if turn_radius_nm == 0:
+        return float('inf')
+        
+    # Turn rate = (airspeed * 6076.12) / (2 * π * turn_radius) * (180/π)
+    turn_rate_deg_s = (airspeed_kts * 6076.12) / (2 * math.pi * turn_radius_nm) * (180 / math.pi)
+    return turn_rate_deg_s
+
 
 def is_point_in_polygon(lat: float, lon: float, polygon: List[Tuple[float, float]]) -> bool:
     """Determines if a point is inside a given polygon using the Ray Casting algorithm."""

@@ -27,8 +27,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class ImprovedTrainer:
     def __init__(self):
-        self.telemetry_keys = ['rpm', 'oil_pressure', 'oil_temp', 'cht', 'egt', 
-                              'fuel_flow', 'g_load', 'vibration', 'bus_volts', 'control_asymmetry']
+        # [MODIFIED] Add new features to the list
+        self.telemetry_keys = [
+            'rpm', 'oil_pressure', 'oil_temp', 'cht', 'egt', 'fuel_flow', 
+            'g_load', 'vibration', 'bus_volts', 'control_asymmetry',
+            'airspeed', 'yaw_rate', 'roll', 'pitch'
+        ]
         
     def extract_features(self, sample):
         """Extract features from a training sample"""
@@ -40,27 +44,21 @@ class ImprovedTrainer:
         # Telemetry values (normalized)
         for key in self.telemetry_keys:
             value = telemetry.get(key, 0.0)
-            # Normalize based on expected ranges
-            if key == 'rpm':
-                features.append(value / 2700.0)
-            elif key == 'oil_pressure':
-                features.append(value / 100.0)
-            elif key == 'oil_temp':
-                features.append(value / 300.0)
-            elif key == 'cht':
-                features.append(value / 500.0)
-            elif key == 'egt':
-                features.append(value / 1500.0)
-            elif key == 'fuel_flow':
-                features.append(value / 15.0)
-            elif key == 'g_load':
-                features.append((value + 3.0) / 6.0)  # -3 to +3 G
-            elif key == 'vibration':
-                features.append(min(value / 1.0, 1.0))
-            elif key == 'bus_volts':
-                features.append(value / 30.0)
-            elif key == 'control_asymmetry':
-                features.append(min(value / 5.0, 1.0))
+            # [MODIFIED] Add normalization logic for new features
+            if key == 'rpm': features.append(value / 2700.0)
+            elif key == 'oil_pressure': features.append(value / 100.0)
+            elif key == 'oil_temp': features.append(value / 300.0)
+            elif key == 'cht': features.append(value / 500.0)
+            elif key == 'egt': features.append(value / 1500.0)
+            elif key == 'fuel_flow': features.append(value / 15.0)
+            elif key == 'g_load': features.append((value + 3.0) / 6.0)
+            elif key == 'vibration': features.append(min(value / 1.0, 1.0))
+            elif key == 'bus_volts': features.append(value / 30.0)
+            elif key == 'control_asymmetry': features.append(min(value / 5.0, 1.0))
+            elif key == 'airspeed': features.append(value / 200.0)
+            elif key == 'yaw_rate': features.append(value / 180.0) # Normalize by 180 deg/s
+            elif key == 'roll': features.append(value / 180.0)   # Normalize by 180 deg
+            elif key == 'pitch': features.append(value / 90.0)    # Normalize by 90 deg
         
         # Anomaly scores
         for key in self.telemetry_keys:
@@ -203,7 +201,7 @@ class ImprovedTrainer:
 
 def main():
     trainer = ImprovedTrainer()
-    trainer.train(num_samples=20000, random_state=42)
+    trainer.train(num_samples=25000, random_state=42)
 
 if __name__ == '__main__':
     main()

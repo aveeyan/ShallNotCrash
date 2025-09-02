@@ -24,6 +24,12 @@ class PlannerConstants:
     GOAL_ALTITUDE_TOLERANCE_FT: float = 250.0
     HIGH_ALTITUDE_THRESHOLD_FT = 3000.0
     HIGH_ALTITUDE_TURN_INCENTIVE = 0.7
+    
+    # Path smoothing parameters
+    MAX_TURN_ANGLE_AGGRESSIVE = 45.0  # Maximum turn angle for aggressive smoothing
+    MAX_TURN_ANGLE_CONSERVATIVE = 25.0  # Maximum turn angle for conservative smoothing
+    SMOOTHING_ITERATIONS_CONSERVATIVE = 2
+    SMOOTHING_ITERATIONS_AGGRESSIVE = 1
 
 class AircraftProfile:
     SAFE_DEFAULT_GLIDE_RATIO = 9.0

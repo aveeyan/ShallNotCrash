@@ -99,6 +99,24 @@ def main():
 
     except Exception as e:
         logging.error(f"Cache generation failed: {e}", exc_info=True)
+    
+    import datetime
+
+    # Add metadata to the cache
+    cache_data = {
+        'metadata': {
+            'generated_at': datetime.datetime.now().isoformat(),
+            'search_center': {'lat': SEARCH_LAT, 'lon': SEARCH_LON},
+            'total_sites': len(sorted_sites),
+            'sites_with_approaches': len([s for s in sorted_sites if 'precomputed_faf' in s])
+        },
+        'sites': sorted_sites
+    }
+
+    with open(CACHE_FILENAME, 'w') as f:
+        json.dump(cache_data, f, indent=2)
+
+    logging.info(f"--- Successfully saved {len(sorted_sites)} sites with metadata to {CACHE_FILENAME} ---")
 
 if __name__ == "__main__":
     main()

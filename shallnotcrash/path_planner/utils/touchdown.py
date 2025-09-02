@@ -50,11 +50,12 @@ def _generate_road_options(site: LandingSite) -> List[Dict]:
 
 def select_optimal_landing_approach(site: LandingSite, current_state: AircraftState) -> Optional[Tuple[Waypoint, Waypoint, float]]:
     """
-    [SYSTEM INTEGRATION FIX - V17]
-    Removes the orphaned reference to the flawed MAX_SAFE_GLIDESLOPE_DEG constant.
-    The Final Approach Fix (FAF) altitude is now calculated exclusively using the
-    standard, non-negotiable FINAL_APPROACH_GLIDESLOPE_DEG, resolving the
-    AttributeError and aligning the module with the corrected physics model.
+    [EFFICIENCY FIX - V18]
+    Now considers multiple factors for runway end selection:
+    1. Distance to FAF
+    2. Heading alignment (reduces required turns)
+    3. Altitude feasibility (can the aircraft reach the FAF?)
+    4. Energy efficiency of the approach
     """
     site_elevation_ft = site.elevation_m * PlannerConstants.METERS_TO_FEET if site.elevation_m is not None else 0.0
     
@@ -68,7 +69,7 @@ def select_optimal_landing_approach(site: LandingSite, current_state: AircraftSt
         return None
 
     best_option = None
-    min_dist_to_faf = float('inf')
+    best_score = float('inf')  # Lower score is better
 
     for option in options:
         threshold = option['threshold']
@@ -81,8 +82,6 @@ def select_optimal_landing_approach(site: LandingSite, current_state: AircraftSt
             threshold.lat, threshold.lon, bearing_to_faf, PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM
         )
         
-        # [SYSTEM FIX] The flawed logic comparing against a non-existent constant has been removed.
-        # The FAF altitude is now correctly and consistently calculated using the standard 3-degree glideslope.
         faf_alt_ft = site_elevation_ft + (
             PlannerConstants.FEET_PER_NAUTICAL_MILE * 
             PlannerConstants.FINAL_APPROACH_FIX_DISTANCE_NM * 
@@ -91,10 +90,52 @@ def select_optimal_landing_approach(site: LandingSite, current_state: AircraftSt
         
         faf = Waypoint(lat=faf_lat, lon=faf_lon, alt_ft=faf_alt_ft, airspeed_kts=0)
         
+        # Factor 1: Distance to FAF
         dist_to_faf = haversine_distance_nm(current_state.lat, current_state.lon, faf.lat, faf.lon)
+        
+        # Factor 2: Heading alignment (penalize large turns)
+        current_bearing_to_faf = calculate_bearing(current_state.lat, current_state.lon, faf.lat, faf.lon)
+        heading_diff = abs(current_state.heading_deg - current_bearing_to_faf)
+        if heading_diff > 180:
+            heading_diff = 360 - heading_diff
+        heading_penalty = heading_diff / 180.0  # Normalized 0-1
+        
+        # Factor 3: Altitude feasibility
+        altitude_needed = faf_alt_ft
+        altitude_available = current_state.alt_ft
+        if altitude_available > altitude_needed:
+            altitude_surplus_ft = altitude_available - altitude_needed
+            min_glide_distance_nm = (altitude_surplus_ft * AircraftProfile.GLIDE_RATIO) / PlannerConstants.FEET_PER_NAUTICAL_MILE
+        else:
+            altitude_deficit_ft = altitude_needed - altitude_available
+            min_glide_distance_nm = -(altitude_deficit_ft * AircraftProfile.GLIDE_RATIO) / PlannerConstants.FEET_PER_NAUTICAL_MILE
+        
+        altitude_penalty = 0.0
+        if min_glide_distance_nm < dist_to_faf:
+            # Can't reach FAF with current altitude - heavy penalty
+            altitude_penalty = 10.0
+        elif altitude_available < altitude_needed:
+            # Below required altitude - moderate penalty
+            altitude_penalty = 2.0
+            
+        # Factor 4: Approach angle efficiency (prefer approaches that align with current trajectory)
+        approach_bearing_from_current = calculate_bearing(current_state.lat, current_state.lon, threshold.lat, threshold.lon)
+        approach_alignment = abs(current_state.heading_deg - approach_bearing_from_current)
+        if approach_alignment > 180:
+            approach_alignment = 360 - approach_alignment
+        approach_penalty = approach_alignment / 180.0  # Normalized 0-1
+        
+        # Combine all factors into a single score
+        # Distance is primary factor, others are weighted penalties
+        score = (
+            dist_to_faf +  # Primary: minimize distance
+            heading_penalty * 2.0 +  # Secondary: minimize required turns
+            altitude_penalty +  # Critical: ensure reachability
+            approach_penalty * 0.5  # Tertiary: prefer aligned approaches
+        )
 
-        if dist_to_faf < min_dist_to_faf:
-            min_dist_to_faf = dist_to_faf
+        if score < best_score:
+            best_score = score
             best_option = (faf, threshold, approach_hdg)
             
     return best_option

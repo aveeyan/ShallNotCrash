@@ -4,108 +4,109 @@ import math
 from typing import List, Optional
 
 from .data_models import AircraftState, Waypoint, FlightPath
-from .utils.calculations import calculate_path_distance, calculate_turn_radius
-from .utils.coordinates import haversine_distance_nm, calculate_bearing
-# [MODIFIED] Import the new geometric turn function
+from .utils.calculations import calculate_path_distance, calculate_turn_radius, get_line_intersection
+from .utils.coordinates import haversine_distance_nm, calculate_bearing, destination_point
 from .utils.flight_dynamics import generate_turn_arc
-from .utils.smoothing import smooth_path_3d
 from .utils.touchdown import select_optimal_landing_approach
 from .constants import PlannerConstants, AircraftProfile
 from ..landing_site.data_models import LandingSite, SafetyReport
 
 class PathPlanner:
-    def __init__(self, terrain_analyzer): # terrain_analyzer is kept for future obstacle checks
+    def __init__(self, terrain_analyzer):
         self.terrain_analyzer = terrain_analyzer
-        logging.info("PathPlanner initialized with GEOMETRIC path constructor.")
+        logging.info("PathPlanner initialized with INTERCEPT path constructor.")
 
     def generate_path_to_site(self, aircraft_state: AircraftState, site: LandingSite) -> Optional[FlightPath]:
-        logging.info(f"Constructing geometric path to {site.site_type} at ({site.lat:.4f}, {site.lon:.4f})")
-        
         approach_data = select_optimal_landing_approach(site, aircraft_state)
         if not approach_data:
-            logging.warning("No valid approach could be calculated for the site.")
             return self._generate_fallback_path(aircraft_state, site)
 
-        faf_waypoint, _, _, approach_waypoints = approach_data
+        faf_waypoint, threshold, approach_hdg, approach_waypoints = approach_data
 
-        path_to_faf = self._construct_geometric_path(aircraft_state, faf_waypoint)
+        path_to_faf = self._construct_intercept_path(aircraft_state, faf_waypoint, approach_hdg)
         if not path_to_faf:
-            logging.warning("Geometric path construction to FAF failed.")
             return self._generate_fallback_path(aircraft_state, site)
         
-        # [FIX] The final path is a simple, clean combination of the two segments.
-        # The first waypoint of the approach is the FAF itself, so we skip it to avoid duplication.
         full_path_waypoints = path_to_faf + approach_waypoints[1:]
-        
-        # [FIX] Smoothing is removed. The geometric path is clean enough for the autopilot to follow.
-        # smoothed_path = smooth_path_3d(full_path_waypoints)
 
         total_distance = calculate_path_distance(full_path_waypoints)
         estimated_time = (total_distance / aircraft_state.airspeed_kts) * 60 if aircraft_state.airspeed_kts > 0 else 0
         
         return FlightPath(
-            waypoints=full_path_waypoints, # Use the direct waypoints
-            total_distance_nm=total_distance, 
-            estimated_time_min=estimated_time,
-            emergency_profile="Geometric Glide Path", 
-            safety_report=site.safety_report
+            waypoints=full_path_waypoints, total_distance_nm=total_distance, estimated_time_min=estimated_time,
+            emergency_profile="Course Intercept Glide Path", safety_report=site.safety_report
         )
-    
-    def _construct_geometric_path(self, start_state: AircraftState, faf: Waypoint) -> Optional[List[Waypoint]]:
-        """
-        Constructs a 3D path using a Turn-Glide-Align methodology.
-        """
+
+    def _construct_intercept_path(self, start_state: AircraftState, faf: Waypoint, approach_hdg: float) -> Optional[List[Waypoint]]:
+        final_course_bearing = calculate_bearing(faf.lat, faf.lon, faf.lat + 1, faf.lon + 1) # Approximation of the final approach course line
+        final_course_bearing = approach_hdg
+        
+        # Determine the optimal intercept angle (45 degrees is standard)
+        intercept_angle = 45.0
+        heading_diff = (approach_hdg - start_state.heading_deg + 360) % 360
+        intercept_bearing = (approach_hdg + intercept_angle) % 360 if heading_diff < 180 else (approach_hdg - intercept_angle + 360) % 360
+
+        # Find the intersection point of the aircraft's intercept path and the final approach course
+        intersection_coords = get_line_intersection(
+            (start_state.lat, start_state.lon), intercept_bearing,
+            (faf.lat, faf.lon), approach_hdg
+        )
+        if not intersection_coords: return None
+        
+        int_lat, int_lon = intersection_coords
+        dist_to_intercept = haversine_distance_nm(start_state.lat, start_state.lon, int_lat, int_lon)
+        
+        # Ensure the intercept point is before the FAF
+        if haversine_distance_nm(int_lat, int_lon, faf.lat, faf.lon) < 0.1 or dist_to_intercept > 20:
+             # Fallback for complex cases: simple turn-and-glide to FAF
+             return self._simple_turn_glide(start_state, faf)
+
+        intercept_wp = Waypoint(lat=int_lat, lon=int_lon, alt_ft=0, airspeed_kts=start_state.airspeed_kts)
+        
+        # Generate the turn from the intercept point to the FAF
+        state_at_intercept = AircraftState(lat=int_lat, lon=int_lon, alt_ft=0, heading_deg=intercept_bearing, airspeed_kts=start_state.airspeed_kts)
         turn_radius_nm = calculate_turn_radius(start_state.airspeed_kts)
-        bearing_to_faf = calculate_bearing(start_state.lat, start_state.lon, faf.lat, faf.lon)
-
-        # Generate the initial turn arc to align with the FAF
-        turn_wps, state_after_turn, turn_dist = generate_turn_arc(start_state, bearing_to_faf, turn_radius_nm, 'right') # Assume right turn for now
         
-        # The straight glide segment is from the end of the turn to the FAF
-        straight_dist = haversine_distance_nm(state_after_turn.lat, state_after_turn.lon, faf.lat, faf.lon)
-        straight_wps = [faf] # The FAF is the end of the straight segment
-
-        path_2d = turn_wps + straight_wps
-        total_dist_to_faf = turn_dist + straight_dist
+        turn_direction = 'left' if heading_diff < 180 else 'right'
+        turn_wps, _, _ = generate_turn_arc(state_at_intercept, approach_hdg, turn_radius_nm, turn_direction)
         
-        # Apply the 3D glide slope to the 2D path
-        alt_to_lose = start_state.alt_ft - faf.alt_ft
-        if alt_to_lose < 0 and abs(alt_to_lose) > 500: # Check if we are significantly below the glide path
-             logging.warning(f"Aircraft is {abs(alt_to_lose):.0f} ft below the required altitude for FAF. Path may be impossible.")
-        
-        path_3d = self._apply_descent_profile(path_2d, start_state, faf, total_dist_to_faf)
+        path_2d = [intercept_wp] + turn_wps + [faf]
+        path_3d = self._apply_descent_profile(path_2d, start_state, faf)
         
         return path_3d
+    
+    def _simple_turn_glide(self, start_state: AircraftState, faf: Waypoint) -> List[Waypoint]:
+        """A robust fallback for when intercept geometry is complex."""
+        turn_radius_nm = calculate_turn_radius(start_state.airspeed_kts)
+        bearing_to_faf = calculate_bearing(start_state.lat, start_state.lon, faf.lat, faf.lon)
+        heading_diff = bearing_to_faf - start_state.heading_deg
+        if heading_diff > 180: heading_diff -= 360
+        if heading_diff < -180: heading_diff += 360
+        turn_direction = 'right' if heading_diff > 0 else 'left'
+        turn_wps, _, _ = generate_turn_arc(start_state, bearing_to_faf, turn_radius_nm, turn_direction)
+        path_2d = turn_wps + [faf]
+        return self._apply_descent_profile(path_2d, start_state, faf)
 
-    def _apply_descent_profile(self, waypoints_2d: List[Waypoint], start: AircraftState, end: Waypoint, total_distance: float) -> List[Waypoint]:
-        """Distributes altitude loss linearly across a series of waypoints."""
-        path_3d = [start] + waypoints_2d
-        
-        initial_alt = start.alt_ft
-        final_alt = end.alt_ft
-        alt_to_lose = initial_alt - final_alt
-        
-        dist_so_far = 0.0
-        for i in range(1, len(path_3d)):
-            dist_segment = haversine_distance_nm(path_3d[i-1].lat, path_3d[i-1].lon, path_3d[i].lat, path_3d[i].lon)
-            dist_so_far += dist_segment
-            
-            fraction_of_path = dist_so_far / total_distance if total_distance > 0 else 0
-            path_3d[i].alt_ft = initial_alt - (alt_to_lose * fraction_of_path)
-        
-        return path_3d[1:] # Return the path excluding the initial aircraft state
+    def _apply_descent_profile(self, waypoints_2d: List[Waypoint], start: AircraftState, end: Waypoint) -> List[Waypoint]:
+        path_3d = []
+        dist_traveled_nm = 0.0
+        last_lat, last_lon = start.lat, start.lon
+        for wp in waypoints_2d:
+            segment_dist = haversine_distance_nm(last_lat, last_lon, wp.lat, wp.lon)
+            dist_traveled_nm += segment_dist
+            altitude_loss_ft = (dist_traveled_nm * PlannerConstants.FEET_PER_NAUTICAL_MILE) / AircraftProfile.GLIDE_RATIO
+            new_altitude = start.alt_ft - altitude_loss_ft
+            wp.alt_ft = max(new_altitude, end.alt_ft)
+            path_3d.append(wp)
+            last_lat, last_lon = wp.lat, wp.lon
+        return path_3d
 
     def _generate_fallback_path(self, aircraft_state: AircraftState, site: LandingSite) -> Optional[FlightPath]:
-        """Generate a simple direct path when advanced planning fails."""
-        logging.warning("Using fallback direct path")
         start_wp = Waypoint(lat=aircraft_state.lat, lon=aircraft_state.lon, alt_ft=aircraft_state.alt_ft, airspeed_kts=aircraft_state.airspeed_kts)
         end_wp = Waypoint(lat=site.lat, lon=site.lon, alt_ft=site.elevation_m * PlannerConstants.METERS_TO_FEET, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
-        
         total_distance = haversine_distance_nm(start_wp.lat, start_wp.lon, end_wp.lat, end_wp.lon)
         estimated_time = (total_distance / aircraft_state.airspeed_kts) * 60 if aircraft_state.airspeed_kts > 0 else 0
-        
         fallback_report = SafetyReport(is_safe=True, risk_level="HIGH", safety_score=50, obstacle_count=99, closest_civilian_distance_km=999)
-        
         return FlightPath(waypoints=[start_wp, end_wp], total_distance_nm=total_distance, 
                           estimated_time_min=estimated_time, emergency_profile="Direct Fallback Path", 
                           safety_report=fallback_report)

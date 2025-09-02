@@ -77,7 +77,17 @@ def console_debug_worker():
         
         time.sleep(2.5)
 
-# --- Core Routes ---
+# --- Site Finding and Path Planning ---
+def load_sites_from_cache():
+    if not state['landing_sites_cache']:
+        if not os.path.exists(SITES_CACHE_PATH): return False, "sites_cache.json not found."
+        try:
+            with open(SITES_CACHE_PATH, 'r') as f:
+                cache_data = json.load(f)
+            sites_list = cache_data.get('sites', cache_data) if isinstance(cache_data, dict) else cache_data
+            state['landing_sites_cache'] = sites_list
+        except (IOError, json.JSONDecodeError): return False, "Could not process cache file."
+    return True, "Cache loaded."
 
 @app.route('/')
 def index():
@@ -95,19 +105,6 @@ def position():
     except queue.Empty:
         # If the worker is truly stopped/frozen, fallback to the last known data.
         return jsonify(state['last_good_telemetry'])
-
-# --- Site Finding and Path Planning ---
-
-def load_sites_from_cache():
-    if not state['landing_sites_cache']:
-        if not os.path.exists(SITES_CACHE_PATH): return False, "sites_cache.json not found."
-        try:
-            with open(SITES_CACHE_PATH, 'r') as f:
-                cache_data = json.load(f)
-            sites_list = cache_data.get('sites', cache_data) if isinstance(cache_data, dict) else cache_data
-            state['landing_sites_cache'] = sites_list
-        except (IOError, json.JSONDecodeError): return False, "Could not process cache file."
-    return True, "Cache loaded."
 
 @app.route('/sites')
 def find_sites_route():

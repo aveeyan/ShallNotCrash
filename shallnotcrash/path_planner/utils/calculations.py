@@ -37,17 +37,19 @@ def calculate_heuristic(state: AircraftState, goal: Waypoint, target_heading: Op
     
     return base_heuristic
 
-def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Waypoint, Waypoint, float]:
-    """Finds the longest possible straight line within a polygon."""
+def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Optional[Waypoint], Optional[Waypoint], float]:
+    """
+    [REFINED] Finds the longest possible straight line within a polygon's vertices.
+    Now correctly handles invalid polygons to prevent planner failure.
+    """
+    # [FIX] If a polygon has fewer than 2 points, it cannot form a line. Return None.
+    if not polygon_coords or len(polygon_coords) < 2:
+        return (None, None, 0.0)
+
     max_dist_m = 0.0
     best_pair = (None, None)
-    if not polygon_coords:
-        return (None, None, 0.0)
-    if len(polygon_coords) < 2:
-        lat, lon = polygon_coords[0]
-        wp = Waypoint(lat=lat, lon=lon, alt_ft=0, airspeed_kts=0)
-        return (wp, wp, 0.0)
 
+    # This logic is sound and remains unchanged.
     for i in range(len(polygon_coords)):
         for j in range(i + 1, len(polygon_coords)):
             p1_lat, p1_lon = polygon_coords[i]
@@ -59,8 +61,13 @@ def find_longest_axis(polygon_coords: list[tuple[float, float]]) -> Tuple[Waypoi
                 wp1 = Waypoint(lat=p1_lat, lon=p1_lon, alt_ft=0, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
                 wp2 = Waypoint(lat=p2_lat, lon=p2_lon, alt_ft=0, airspeed_kts=AircraftProfile.GLIDE_SPEED_KTS)
                 best_pair = (wp1, wp2)
-    return (best_pair[0], best_pair[1], max_dist_m)
-
+                
+    # If a valid pair was found, return it. Otherwise, this will correctly return (None, None, 0.0)
+    if best_pair[0] is not None:
+        return (best_pair[0], best_pair[1], max_dist_m)
+    else:
+        return (None, None, 0.0)
+    
 def calculate_turn_radius(airspeed_kts: float, bank_angle_deg: float = AircraftProfile.STANDARD_BANK_ANGLE_DEG) -> float:
     """Calculates the turn radius in nautical miles."""
     if bank_angle_deg == 0:
@@ -123,3 +130,55 @@ def is_point_in_polygon(lat: float, lon: float, polygon: List[Tuple[float, float
                     inside = not inside
         p1_lat, p1_lon = p2_lat, p2_lon
     return inside
+
+# shallnotcrash/path_planner/utils/calculations.py
+
+# ... (add this function to the end of the file)
+
+def get_line_intersection(p1, brg1, p2, brg2):
+    """
+    Finds the intersection of two paths given start points and bearings.
+    Returns the intersection point (lat, lon).
+    Adapted from: https://www.movable-type.co.uk/scripts/latlong.html
+    """
+    lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
+    brg13 = math.radians(brg1)
+    lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
+    brg23 = math.radians(brg2)
+    
+    d_lat = lat2 - lat1
+    d_lon = lon2 - lon1
+
+    dist12 = 2 * math.asin(math.sqrt(math.sin(d_lat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(d_lon/2)**2))
+    if dist12 == 0:
+        return None
+
+    brg_a = math.acos((math.sin(lat2) - math.sin(lat1)*math.cos(dist12)) / (math.sin(dist12)*math.cos(lat1)))
+    if not math.isfinite(brg_a):
+        brg_a = 0
+    brg_b = math.acos((math.sin(lat1) - math.sin(lat2)*math.cos(dist12)) / (math.sin(dist12)*math.cos(lat2)))
+
+    if math.sin(lon2-lon1) > 0:
+        brg12 = brg_a
+        brg21 = 2*math.pi - brg_b
+    else:
+        brg12 = 2*math.pi - brg_a
+        brg21 = brg_b
+
+    alpha1 = (brg13 - brg12 + math.pi) % (2*math.pi) - math.pi
+    alpha2 = (brg21 - brg23 + math.pi) % (2*math.pi) - math.pi
+
+    if math.sin(alpha1) == 0 and math.sin(alpha2) == 0:
+        return None  # Infinite intersections
+    if math.sin(alpha1)*math.sin(alpha2) < 0:
+        return None  # Ambiguous intersection
+
+    alpha3 = math.acos(-math.cos(alpha1)*math.cos(alpha2) + math.sin(alpha1)*math.sin(alpha2)*math.cos(dist12))
+    dist13 = math.atan2(math.sin(dist12)*math.sin(alpha1)*math.sin(alpha2), math.cos(alpha2)+math.cos(alpha1)*math.cos(alpha3))
+    
+    lat3 = math.asin(math.sin(lat1)*math.cos(dist13) + math.cos(lat1)*math.sin(dist13)*math.cos(brg13))
+    dlon13 = math.atan2(math.sin(brg13)*math.sin(dist13)*math.cos(lat1), math.cos(dist13)-math.sin(lat1)*math.sin(lat3))
+    
+    lon3 = lon1 + dlon13
+    
+    return (math.degrees(lat3), (math.degrees(lon3)+540)%360-180) # Normalize lon to -180..+180

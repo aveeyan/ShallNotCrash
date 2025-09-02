@@ -15,19 +15,18 @@
         .button-secondary { background: #4a5568; }
         .button:disabled { background: #a0aec0; color: #eee; cursor: not-allowed; opacity: 0.7; }
 
-        /* --- [NEW] Styles for the Sites Panel --- */
         #sites-panel {
             position: absolute;
-            top: 150px; /* Position below the emergency panel */
+            top: 150px;
             right: 18px;
             width: 280px;
-            display: none; /* Hidden by default */
+            display: none;
         }
         #sites-list {
             list-style: none;
             padding: 0;
             margin: 10px 0 0 0;
-            max-height: 260px; /* Approx. 4 items at 65px each */
+            max-height: 260px;
             overflow-y: auto;
         }
         .site-item {
@@ -59,7 +58,6 @@
             font-size: 0.9em;
             padding: 3px 7px;
             border-radius: 10px;
-            background-color: #38a169;
         }
         .site-details {
             font-size: 0.8em;
@@ -89,57 +87,60 @@
     </div>
 
 <script>
+    // --- Map and Marker Initialization ---
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([64.05, -22.5], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
     const PlaneIcon = L.divIcon({ className: '', html: '<div id="plane-marker" class="plane-emoji">✈️</div>', iconSize: [40, 40], iconAnchor: [20, 20] });
     let planeMarker = L.marker([64.05, -22.5], {icon: PlaneIcon}).addTo(map);
 
+    // --- Global State Variables ---
     let selectedSiteLayer = null;
-    let navLine = null;
-    let selectedSiteCoords = null;
+    let selectedSiteCoords = null; // For the direct navigation line
+    let navLine = null; // The direct navigation line layer
+    let flightPathLayer = null; // The generated flight path layer
+    let activePathRecalculation = null; // Timer for recalculating path
 
+    // --- Layer Styles ---
     const defaultSiteStyle = (feature) => {
         const color = feature.properties.display_color || '#FF8C00';
         return { color: color, fillColor: color, weight: 2, fillOpacity: 0.65, opacity: 1 };
     };
-    const selectedSiteStyle = {
-        color: '#FFFFFF',
-        weight: 4,
-        fillOpacity: 0.8,
-        opacity: 1
-    };
-    
-    // --- [MODIFIED] onEachFeature now also populates the sites list ---
+    const selectedSiteStyle = { color: '#FFFFFF', weight: 4, fillOpacity: 0.8, opacity: 1 };
+
+    // --- GeoJSON Layer for Landing Sites ---
     let sitesLayerGroup = L.geoJSON(null, {
         style: defaultSiteStyle,
         onEachFeature: function (feature, layer) {
             const props = feature.properties;
             const score = (props.safety_report && props.safety_report.safety_score) ? props.safety_report.safety_score.toFixed(0) : 'N/A';
-            const popupContent = `<b>${props.name} (${props.type})</b><br>Safety Score: <b>${score}</b>`;
-            layer.bindPopup(popupContent);
+            layer.bindPopup(`<b>${props.name} (${props.type})</b><br>Safety Score: <b>${score}</b>`);
 
-            layer.on('click', function(e) {
+            // --- Unified Click Handler for Site Selection ---
+            const siteClickHandler = () => {
+                // 1. Update map styles
                 if (selectedSiteLayer) {
                     selectedSiteLayer.setStyle(defaultSiteStyle(selectedSiteLayer.feature));
                 }
                 layer.setStyle(selectedSiteStyle);
                 selectedSiteLayer = layer;
-                const center = feature.properties;
-                if (center.center_lat && center.center_lon) {
-                    selectedSiteCoords = [center.center_lat, center.center_lon];
-                    updateNavLine();
+                
+                // 2. Set coordinates for the simple navigation line
+                if (props.center_lat && props.center_lon) {
+                    selectedSiteCoords = [props.center_lat, props.center_lon];
                 }
-            });
 
-            // --- [NEW] Create and append the corresponding list item ---
+                // 3. Plan and display the detailed flight path
+                planAndDisplayPath(props.id); 
+            };
+            layer.on('click', siteClickHandler);
+
+            // --- Create and configure the list item in the side panel ---
             const sitesList = document.getElementById('sites-list');
             const listItem = document.createElement('div');
             listItem.className = 'site-item';
-
-            // --- [NEW] Get the score-based color from properties ---
+            
             const scoreColor = props.display_color || '#a0aec0';
-            // Note for text on bright backgrounds like yellow
-            const textColor = (scoreColor === '#FFFF00' || scoreColor === '#FFA500' || scoreColor === '#32CD32') ? '#333' : '#FFF'
+            const textColor = (['#FFFF00', '#FFA500', '#32CD32'].includes(scoreColor)) ? '#333' : '#FFF';
             
             listItem.innerHTML = `
                 <div class="site-item-header">
@@ -148,28 +149,23 @@
                 </div>
                 <div class="site-details">
                     ${props.type.replace('_', ' ')} &bull; ${(props.length_m || 0).toFixed(0)}m long
-                </div>
-            `;
+                </div>`;
             
-            // --- [NEW] Add hover listeners to link list to map ---
+            listItem.addEventListener('click', siteClickHandler);
             listItem.addEventListener('mouseover', () => {
                 layer.openPopup();
-                layer.setStyle({ weight: 4, color: '#FFFF00' }); // Highlight with yellow
+                layer.setStyle({ weight: 4, color: '#FFFF00' });
             });
             listItem.addEventListener('mouseout', () => {
                 layer.closePopup();
-                // Reset style only if it's not the currently selected layer
-                if (layer !== selectedSiteLayer) {
-                    layer.setStyle(defaultSiteStyle(feature));
-                } else {
-                    layer.setStyle(selectedSiteStyle); // Re-apply selected style
-                }
+                layer.setStyle(layer === selectedSiteLayer ? selectedSiteStyle : defaultSiteStyle(feature));
             });
             
             sitesList.appendChild(listItem);
         }
     }).addTo(map);
-    
+
+    // --- Helper Functions ---
     function updateNavLine() {
         if (!selectedSiteCoords) return;
         const planePos = planeMarker.getLatLng();
@@ -181,75 +177,100 @@
         }
     }
 
-    function updateHUD() {
-        fetch('/position').then(r => r.json()).then(data => {
-            if (data && data.lat !== null && data.lng !== null) {
-                const pos = [data.lat, data.lng];
-                planeMarker.setLatLng(pos);
-                if (!selectedSiteLayer) {
-                    map.setView(pos, map.getZoom(), {animate: false});
+    function planAndDisplayPath(siteId) {
+        if (activePathRecalculation) clearInterval(activePathRecalculation);
+
+        const fetchAndDraw = () => {
+            fetch('/plan_path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            })
+            .then(res => res.ok ? res.json() : Promise.reject('Path planning failed on server.'))
+            .then(data => {
+                if (data.waypoints && data.waypoints.length > 0) {
+                    if (flightPathLayer) {
+                        flightPathLayer.setLatLngs(data.waypoints);
+                    } else {
+                        flightPathLayer = L.polyline(data.waypoints, { color: '#00FFFF', weight: 4, opacity: 0.9, dashArray: '5, 10' }).addTo(map);
+                    }
                 }
-                document.getElementById('plane-marker').style.transform = `rotate(${data.heading || 0}deg)`;
-                if (selectedSiteLayer) {
-                    updateNavLine();
-                }
-            }
-            const fgConnected = (data && data.fg_connected === true);
-            document.getElementById('fgstatus').textContent = fgConnected ? "Online" : "Offline";
-            document.getElementById('fgstatus').style.color = fgConnected ? "#48bb78" : "#f56565";
-            document.getElementById('start-fg').disabled = fgConnected;
-        });
+            })
+            .catch(error => console.error('Error fetching flight path:', error));
+        };
+        
+        fetchAndDraw(); // Fetch immediately on selection
+        activePathRecalculation = setInterval(fetchAndDraw, 7000); // Then update every 7 seconds
     }
 
-    // --- [MODIFIED] This function now sorts the data and shows the panel ---
     function findAndDisplaySites() {
         const btn = document.getElementById('find-sites');
-        const sitesPanel = document.getElementById('sites-panel');
-        const sitesList = document.getElementById('sites-list');
         btn.disabled = true;
         btn.textContent = "Loading Sites...";
 
         fetch('/sites')
-            .then(response => {
-                if (!response.ok) { return response.json().then(err => { throw new Error(err.error || 'Failed to load sites.') }); }
-                return response.json();
-            })
+            .then(response => response.ok ? response.json() : Promise.reject('Failed to load sites.'))
             .then(geojson_data => {
-                // --- [NEW] Sort features by safety score in descending order ---
-                geojson_data.features.sort((a, b) => {
-                    const scoreA = a.properties.priority_score || 0;
-                    const scoreB = b.properties.priority_score || 0;
-                    return scoreB - scoreA;
-                });
-
-                // Clear previous data
+                geojson_data.features.sort((a, b) => (b.properties.priority_score || 0) - (a.properties.priority_score || 0));
+                
                 sitesLayerGroup.clearLayers();
-                sitesList.innerHTML = ''; // Clear the list
-
+                document.getElementById('sites-list').innerHTML = '';
                 sitesLayerGroup.addData(geojson_data);
 
+                const sitesPanel = document.getElementById('sites-panel');
                 if (geojson_data.features.length > 0) {
                     map.fitBounds(sitesLayerGroup.getBounds().pad(0.1));
-                    sitesPanel.style.display = 'block'; // Show the panel
+                    sitesPanel.style.display = 'block';
                 } else {
-                    sitesPanel.style.display = 'none'; // Hide if no sites
+                    sitesPanel.style.display = 'none';
                 }
             })
-            .catch(error => { console.error('Error fetching landing sites:', error); alert('Error: ' + error.message); })
+            .catch(error => { console.error('Error finding sites:', error); alert(error.message); })
             .finally(() => { btn.disabled = false; btn.textContent = "Find Landing Sites"; });
     }
 
+    // --- Main Application Loop ---
+    function updateHUD() {
+        fetch('/position').then(r => r.json()).then(data => {
+            if (data && data.lat !== null) {
+                const pos = [data.lat, data.lng];
+                planeMarker.setLatLng(pos);
+                if (!selectedSiteLayer) map.setView(pos, map.getZoom(), {animate: false});
+                
+                document.getElementById('plane-marker').style.transform = `rotate(${data.heading || 0}deg)`;
+
+                // "Lazy" visual update for both nav line and flight path
+                if (selectedSiteLayer) updateNavLine();
+                if (flightPathLayer) {
+                    const currentPath = flightPathLayer.getLatLngs();
+                    if (currentPath.length > 1) {
+                        currentPath[0] = L.latLng(data.lat, data.lng);
+                        flightPathLayer.setLatLngs(currentPath);
+                    }
+                }
+            }
+            const fgConnected = (data && data.fg_connected === true);
+            const fgStatusEl = document.getElementById('fgstatus');
+            fgStatusEl.textContent = fgConnected ? "Online" : "Offline";
+            fgStatusEl.style.color = fgConnected ? "#48bb78" : "#f56565";
+            document.getElementById('start-fg').disabled = fgConnected;
+        });
+    }
+
+    // --- Initial Setup and Event Listeners ---
     setInterval(updateHUD, 200);
     updateHUD();
     document.getElementById('find-sites').onclick = findAndDisplaySites;
     document.getElementById('start-fg').onclick = function() {
         const btn = this; btn.disabled = true; btn.textContent = "Starting...";
-        fetch('/start_fg', {method: 'POST'}).then(r => r.json()).then(data => {
-            if (!data.success) {
-                 alert("Failed to start FlightGear: " + (data.error || "Unknown error"));
-                 btn.disabled = false; btn.textContent = "Start FlightGear";
-            }
-        });
+        fetch('/start_fg', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert("Failed to start FlightGear: " + (data.error || "Unknown error"));
+                    btn.disabled = false; btn.textContent = "Start FlightGear";
+                }
+            });
     };
 </script>
 </body>

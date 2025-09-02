@@ -9,6 +9,8 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 from shallnotcrash.landing_site.core import LandingSiteFinder
+from shallnotcrash.path_planner.utils.touchdown import select_optimal_landing_approach
+from shallnotcrash.path_planner.data_models import AircraftState
 
 def haversine_distance_km(lat1, lon1, lat2, lon2):
     # ... (haversine function is unchanged) ...
@@ -48,39 +50,55 @@ def main():
     CACHE_FILENAME = os.path.join(CACHE_DIR, "sites_cache.json")
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-    logging.info("--- Starting HYBRID Landing Site Cache Generation (with Colors) ---")
-    
-    all_sites = []
+    logging.info("--- Starting Advanced Landing Site Cache Generation ---")
     
     try:
-        logging.info("[1] Searching for sites using online methods...")
+        logging.info("[1] Initializing LandingSiteFinder...")
         finder = LandingSiteFinder()
         dem_dir_path = os.path.join(project_root, "shallnotcrash", "landing_site", "osm", "rasters")
         SEARCH_LAT, SEARCH_LON = 63.9850, -22.6056
         
+        logging.info(f"[2] Finding all potential sites near ({SEARCH_LAT}, {SEARCH_LON})...")
         results_obj, analyzer = finder.find_sites(SEARCH_LAT, SEARCH_LON, dem_dir_path)
-        analyzer.close_dem_sources()
-
-        all_sites.extend([site.__dict__ for site in results_obj.landing_sites])
-        logging.info(f"Found {len(results_obj.landing_sites)} sites via online methods.")
-    except Exception as e:
-        logging.warning(f"Online search failed: {e}. Check network or API status.")
-
-    final_sites = []
-    for site_dict in all_sites:
-        if 'safety_report' in site_dict:
-            site_dict['safety_report'] = site_dict['safety_report'].__dict__
+        logging.info(f"Found {len(results_obj.landing_sites)} raw sites.")
         
-        # --- [NEW] Assign the color before adding to the final list ---
-        site_dict['display_color'] = assign_display_color(site_dict)
-        final_sites.append(site_dict)
+        # --- [NEW] Pre-compute and cache the approach waypoints for each site ---
+        logging.info("[3] Pre-computing optimal approach waypoints for each site...")
+        final_sites = []
+        # A dummy aircraft state is needed for the approach calculation logic
+        dummy_state = AircraftState(lat=SEARCH_LAT, lon=SEARCH_LON, alt_ft=5000, heading_deg=180, airspeed_kts=70)
 
-    sorted_sites = sorted(final_sites, key=lambda x: x.get('suitability_score', 0), reverse=True)
-    
-    with open(CACHE_FILENAME, 'w') as f:
-        json.dump(sorted_sites, f, indent=2)
+        for site in results_obj.landing_sites:
+            site_dict = site.__dict__
+            if 'safety_report' in site_dict and site_dict['safety_report']:
+                site_dict['safety_report'] = site_dict['safety_report'].__dict__
+            
+            site_dict['display_color'] = assign_display_color(site_dict)
 
-    logging.info(f"--- Successfully saved {len(sorted_sites)} sites with color data to {CACHE_FILENAME} ---")
+            # Calculate the best approach for this site
+            approach_data = select_optimal_landing_approach(site, dummy_state)
+            if approach_data:
+                faf_waypoint, threshold_waypoint, approach_hdg = approach_data
+                # Convert Waypoint objects to simple dictionaries for JSON serialization
+                site_dict['precomputed_faf'] = faf_waypoint.__dict__
+                site_dict['precomputed_threshold'] = threshold_waypoint.__dict__
+                site_dict['precomputed_approach_hdg'] = approach_hdg
+                final_sites.append(site_dict)
+            else:
+                logging.warning(f"Could not compute approach for site at ({site.lat}, {site.lon}). Skipping.")
+
+        analyzer.close_dem_sources()
+        
+        # Sort by suitability score as before
+        sorted_sites = sorted(final_sites, key=lambda x: x.get('suitability_score', 0), reverse=True)
+        
+        with open(CACHE_FILENAME, 'w') as f:
+            json.dump(sorted_sites, f, indent=2)
+
+        logging.info(f"--- Successfully saved {len(sorted_sites)} sites with pre-computed approach data to {CACHE_FILENAME} ---")
+
+    except Exception as e:
+        logging.error(f"Cache generation failed: {e}", exc_info=True)
 
 if __name__ == "__main__":
     main()

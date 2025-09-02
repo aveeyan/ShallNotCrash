@@ -45,6 +45,36 @@ class PathPlanner:
         smoothed_path = smooth_path_3d(coarse_path_to_faf)
         return smoothed_path + [threshold_waypoint]
 
+    # --- [NEW] Faster method for real-time use with cached data ---
+    def generate_path_from_precomputed(self, aircraft_state: AircraftState, faf_waypoint: Waypoint, threshold_waypoint: Waypoint) -> Optional[FlightPath]:
+        """
+        Generates a path using pre-computed FAF and threshold waypoints.
+        This is much faster as it skips the 'select_optimal_landing_approach' step.
+        """
+        logging.info(f"Generating real-time path to pre-computed FAF at ({faf_waypoint.lat:.4f}, {faf_waypoint.lon:.4f})")
+        
+        # 1. Run A* search from current state to the pre-computed FAF
+        coarse_path_to_faf = self._a_star_search(aircraft_state, faf_waypoint)
+        if not coarse_path_to_faf:
+            logging.warning("A* search failed to find a path to the FAF.")
+            return None
+            
+        # 2. Smooth the path and add the final approach
+        smoothed_path = smooth_path_3d(coarse_path_to_faf)
+        final_waypoints = smoothed_path + [threshold_waypoint]
+
+        # 3. Package the results into a FlightPath object
+        total_distance = calculate_path_distance(final_waypoints)
+        estimated_time = (total_distance / aircraft_state.airspeed_kts) * 60 if aircraft_state.airspeed_kts > 0 else 0
+        
+        return FlightPath(
+            waypoints=final_waypoints, 
+            total_distance_nm=total_distance, 
+            estimated_time_min=estimated_time,
+            emergency_profile="Real-Time Glide Path"
+        )
+        
+
     def _a_star_search(self, start: AircraftState, goal: Waypoint) -> Optional[List[Waypoint]]:
         open_set, count = [], 0
         heapq.heappush(open_set, (0, count, start))

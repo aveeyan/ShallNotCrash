@@ -106,11 +106,12 @@ class PatternRecognizer:
             logging.error(f"A definitive failure occurred while loading model from {model_path}. Reason: {e}. Operating in fallback mode.", exc_info=True)
             self.is_trained = False
 
+    # In pattern_recognizer.py, modify the extract_features method
     def extract_features(self, telemetry: Dict[str, float], anomaly_scores: Dict[str, Any]) -> np.ndarray:
         """Extracts a fixed-size feature vector from input data."""
-        telemetry_vector = [telemetry.get(key, 0.0) for key in self.telemetry_keys]
         anomaly_vector = []
-        for key in self.telemetry_keys:
+        # Only iterate through the telemetry keys to maintain a consistent feature order
+        for key in self.telemetry_keys: 
             score_data = anomaly_scores.get(key)
             if hasattr(score_data, 'normalized_score'):
                 anomaly_vector.append(score_data.normalized_score)
@@ -118,8 +119,11 @@ class PatternRecognizer:
                 anomaly_vector.append(score_data.get('score', 0.0))
             else:
                 anomaly_vector.append(0.0)
-        return np.array(telemetry_vector + anomaly_vector, dtype=float)
-
+        
+        # Return only the anomaly vector, which has 16 features
+        return np.array(anomaly_vector, dtype=float)
+    
+    
     def predict_pattern(self, telemetry: Dict[str, float], anomaly_scores: Dict[str, Any], **kwargs) -> PatternResult:
         """Predicts emergency patterns using the loaded model pipeline."""
         if not self.is_trained:
@@ -190,8 +194,7 @@ class PatternRecognizer:
         }
         return actions.get(pattern, "Monitor situation.")
 
-# --- SINGLETON INSTANCE CREATION ---
-MODEL_NAME = "c172p_pattern_recognizer_v2.joblib"
+MODEL_NAME = "c172p_emergency_model_v3_tuned.joblib"
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', MODEL_NAME)
 PATTERN_RECOGNIZER = PatternRecognizer(model_path=MODEL_PATH)

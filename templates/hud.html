@@ -10,6 +10,8 @@
             --text-primary: #E2E8F0; --text-secondary: #A0AEC0; --color-normal: #48BB78;
             --color-warning: #FFA500; --color-danger: #F56565; --color-info: #667EEA;
             --color-highlight: #A3BFFA;
+            /* [NEW] Pink glow color for hover highlighting */
+            --color-glow: #FF69B4; /* Brighter pink */
         }
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #1A202C; }
         #map { width: 100vw; height: 100vh; z-index: 0; background-color: #4A5568; }
@@ -26,8 +28,14 @@
         .detail-item { display: flex; justify-content: space-between; margin-bottom: 4px; padding: 2px 4px; border-radius: 3px; }
         #sites-list { list-style: none; padding: 0; margin: 10px 0 0 0; max-height: 260px; overflow-y: auto; }
         .site-item { padding: 10px; border-radius: 6px; border-bottom: 1px solid #4A5568; cursor: pointer; transition: background-color 0.2s; }
-        .site-item.hovered { background-color: var(--color-info); }
-        .site-item.selected { background-color: #4A5568; border-left: 4px solid var(--color-highlight); padding-left: 6px; }
+        .site-item:last-child { border-bottom: none; }
+        /* [UPDATED] Styles for hover and selection */
+        .site-item.hovered { background-color: var(--color-info); } /* Blue-ish for hover */
+        .site-item.selected { background-color: #4A5568; border-left: 4px solid var(--color-highlight); padding-left: 6px; } /* Persistent highlight for selected */
+        .site-item-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        .site-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .site-score { font-size: 0.9em; padding: 3px 7px; border-radius: 10px; }
+        .site-details { font-size: 0.8em; color: var(--text-secondary); margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -64,6 +72,7 @@
     let selectedSiteId = null, flightPathLayer = null;
     let sitesLayerGroup = L.geoJSON(null).addTo(map);
     let siteSearchTriggered = false, isFollowingPlane = true;
+    let mapSiteLayers = {}; // [NEW] Store references to Leaflet layers by siteId
 
     const ui = {
         fgStatus: document.getElementById('fgstatus'),
@@ -74,10 +83,10 @@
         emergencyDetails: document.getElementById('emergency-details'),
         detailsContainer: document.getElementById('emergency-details-container'),
         findSitesBtn: document.getElementById('find-sites'),
+        sitesPanel: document.getElementById('sites-panel'),
         sitesList: document.getElementById('sites-list'),
     };
 
-    // [NEW] JavaScript "translator" for the emergency pattern number.
     const EmergencyPattern = {
         0: 'NORMAL', 1: 'ENGINE_DEGRADATION', 2: 'FUEL_LEAK',
         3: 'STRUCTURAL_FATIGUE', 4: 'ELECTRICAL_FAILURE',
@@ -95,7 +104,11 @@
             if (trailCoords.length > 300) trailCoords.shift();
             flightTrail.setLatLngs(trailCoords);
         }
-        if (isFollowingPlane) map.panTo(pos, { animate: true, duration: 0.5 });
+        // [FIX] Ensure map follows plane if isFollowingPlane is true
+        if (isFollowingPlane) {
+            map.panTo(pos, { animate: true, duration: 0.5 });
+        }
+        
         const isConnected = data.fg_connected === true;
         ui.fgStatus.textContent = isConnected ? "Online" : "Offline";
         ui.fgStatus.style.color = isConnected ? 'var(--color-normal)' : 'var(--color-danger)';
@@ -107,10 +120,7 @@
     function updateEmergencyStatus(data) {
         const emergency = data.emergency_result || {};
         const status = data.system_status || {};
-        
-        // [FIX] Use the translator to get the string name for the pattern number.
         const type = EmergencyPattern[emergency.pattern_type] || 'NORMAL';
-        
         const isEmergency = type !== 'NORMAL' && type !== 'GRACE_PERIOD';
 
         ui.emergencyPanel.className = 'panel';
@@ -130,7 +140,6 @@
             ui.emergencyPanel.classList.add('blinking-border');
             ui.emergencyPanel.style.borderColor = 'var(--color-danger)';
             ui.findSitesBtn.style.backgroundColor = 'var(--color-danger)';
-            // This will now execute correctly because the crash is fixed.
             if (!siteSearchTriggered) {
                 findAndDisplaySites();
                 siteSearchTriggered = true;
@@ -147,17 +156,23 @@
     function updateTelemetryDetails(data) {
         const telemetry = data.raw_telemetry || {};
         const scores = data.anomaly_scores || {};
-        const orderedKeys = ['rpm', 'oil_pressure', 'fuel_flow', 'g_load', 'vibration', 'bus_volts', 'oil_temp', 'cht', 'egt'];
+        const orderedKeys = [
+            'rpm', 'oil_pressure', 'fuel_flow', 'g_load', 'vibration', 
+            'bus_volts', 'oil_temp', 'cht', 'egt', 'airspeed', 'yaw_rate', 
+            'roll', 'pitch', 'control_asymmetry'
+        ];
         ui.detailsContainer.innerHTML = '';
         if (Object.keys(telemetry).length > 0) {
             orderedKeys.forEach(key => {
-                const score = scores[key] || 0;
-                const scoreColor = score > 0.7 ? 'var(--color-danger)' : (score > 0.5 ? 'var(--color-warning)' : 'var(--text-secondary)');
-                const item = document.createElement('div');
-                item.className = 'detail-item';
-                if (score > 0.5) item.style.backgroundColor = 'rgba(255, 69, 0, 0.2)';
-                item.innerHTML = `<span style="color:var(--text-secondary)">${key.replace(/_/g, ' ').toUpperCase()}</span><span><span style="font-weight:bold">${telemetry[key].toFixed(2)}</span><span style="color:${scoreColor};font-weight:bold;width:45px;display:inline-block;text-align:right">(${(score * 100).toFixed(0)}%)</span></span>`;
-                ui.detailsContainer.appendChild(item);
+                if(telemetry.hasOwnProperty(key)) {
+                    const score = (scores[key] && scores[key].normalized_score !== undefined) ? scores[key].normalized_score : 0;
+                    const scoreColor = score > 0.7 ? 'var(--color-danger)' : (score > 0.5 ? 'var(--color-warning)' : 'var(--text-secondary)');
+                    const item = document.createElement('div');
+                    item.className = 'detail-item';
+                    if (score > 0.5) item.style.backgroundColor = 'rgba(255, 69, 0, 0.2)';
+                    item.innerHTML = `<span style="color:var(--text-secondary)">${key.replace(/_/g, ' ').toUpperCase()}</span><span><span style="font-weight:bold">${telemetry[key].toFixed(2)}</span><span style="color:${scoreColor};font-weight:bold;width:45px;display:inline-block;text-align:right">(${(score * 100).toFixed(0)}%)</span></span>`;
+                    ui.detailsContainer.appendChild(item);
+                }
             });
         } else {
             ui.detailsContainer.innerHTML = `<div style="color: var(--text-secondary); text-align: center;">Awaiting telemetry...</div>`;
@@ -172,14 +187,20 @@
             geojson.features.sort((a, b) => (b.properties.priority_score || 0) - (a.properties.priority_score || 0));
             sitesLayerGroup.clearLayers();
             ui.sitesList.innerHTML = '';
+            mapSiteLayers = {}; // Clear map layer references
+
             sitesLayerGroup = L.geoJSON(geojson, {
                 style: f => ({ color: f.properties.display_color, weight: 2, fillOpacity: 0.6 }),
                 onEachFeature: (feature, layer) => {
-                    const props = feature.properties;
-                    const listItem = document.createElement('li');
-                    listItem.className = 'site-item';
-                    listItem.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;font-weight:bold;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${props.name}</span><span style="font-size:0.9em;padding:3px 7px;border-radius:10px;background-color:${props.display_color};color:${['#FFFF00','#FFA500'].includes(props.display_color)?'#333':'#FFF'};">${(props.safety_report.safety_score||0).toFixed(0)}</span></div><div style="font-size:0.8em;color:var(--text-secondary);margin-top:4px;">${props.type.replace('_', ' ')} &bull; ${(props.length_m||0).toFixed(0)}m</div>`;
-                    ui.sitesList.appendChild(listItem);
+                    const siteId = feature.properties.id;
+                    mapSiteLayers[siteId] = layer; // Store reference to the layer
+
+                    layer.on({
+                        click: () => handleSiteClick(feature, layer),
+                        mouseover: (e) => highlightSite(siteId, true, e),
+                        mouseout: (e) => highlightSite(siteId, false, e),
+                    });
+                    addSiteToList(feature, layer);
                 }
             }).addTo(map);
 
@@ -189,7 +210,78 @@
             }
         }).finally(() => { ui.findSitesBtn.disabled = false; });
     }
+
+    function addSiteToList(feature, layer) {
+        const props = feature.properties;
+        const listItem = document.createElement('li');
+        listItem.className = 'site-item';
+        listItem.dataset.siteId = props.id; // Link list item to site ID
+        const score = (props.safety_report.safety_score || 0).toFixed(0);
+        const scoreColor = props.display_color;
+        const textColor = ['#FFFF00','#FFA500'].includes(scoreColor) ? '#333' : '#FFF';
+
+        listItem.innerHTML = `<div class="site-item-header"><span class="site-name">${props.name}</span><span class="site-score" style="background-color:${scoreColor};color:${textColor};">${score}</span></div><div class="site-details">${props.type.replace(/_/g, ' ')} &bull; ${(props.length_m||0).toFixed(0)}m</div>`;
+        
+        listItem.addEventListener('click', () => handleSiteClick(feature, layer));
+        listItem.addEventListener('mouseover', () => highlightSite(props.id, true));
+        listItem.addEventListener('mouseout', () => highlightSite(props.id, false));
+        
+        ui.sitesList.appendChild(listItem);
+    }
+
+    function highlightSite(siteId, isHighlighted, event = null) {
+        const mapLayer = mapSiteLayers[siteId];
+        const listItem = document.querySelector(`.site-item[data-site-id='${siteId}']`);
+        if (!mapLayer || !listItem) return;
+
+        // Apply hovered class to list item
+        listItem.classList.toggle('hovered', isHighlighted);
+        
+        // Don't change map layer style if it's currently selected
+        if (selectedSiteId === siteId) return;
+
+        if (isHighlighted) {
+            mapLayer.setStyle({ color: 'var(--color-glow)', weight: 4, opacity: 1 });
+            mapLayer.bringToFront(); // Bring hovered layer to front
+        } else {
+            // Revert to original style
+            mapLayer.setStyle({ color: mapLayer.feature.properties.display_color, weight: 2, opacity: 0.6 });
+        }
+    }
+
+    function handleSiteClick(feature, layer) {
+        // Clear previous selection visually
+        if (selectedSiteId !== null) {
+            const oldLayer = mapSiteLayers[selectedSiteId];
+            if (oldLayer) oldLayer.setStyle({ weight: 2, color: oldLayer.feature.properties.display_color, opacity: 0.6 });
+            document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`).classList.remove('selected');
+        }
+
+        // Apply new selection visually
+        selectedSiteId = feature.properties.id;
+        document.querySelector(`.site-item[data-site-id='${selectedSiteId}']`).classList.add('selected');
+        layer.setStyle({ weight: 5, color: 'var(--color-highlight)', opacity: 1 }); // Persistent selected style
+        layer.bringToFront();
+
+        planAndDisplayPath(selectedSiteId);
+    }
     
+    function planAndDisplayPath(siteId) {
+        isFollowingPlane = false; // Stop following plane when a path is being planned/displayed
+        fetch('/plan_path', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: siteId }) })
+        .then(res => res.ok ? res.json() : Promise.reject('Path planning failed')).then(data => {
+            if (data && data.waypoints && data.waypoints.length > 0) {
+                if (flightPathLayer) flightPathLayer.remove();
+                flightPathLayer = L.polyline(data.waypoints, { color: '#00FFFF', weight: 4, opacity: 0.9, dashArray: '5, 10' }).addTo(map);
+                map.fitBounds(L.latLngBounds([planeMarker.getLatLng(), ...data.waypoints]).pad(0.2));
+            }
+        }).finally(() => {
+            // [FIX] Recenter on plane after path planning
+            map.setView(planeMarker.getLatLng(), map.getZoom(), {animate: true, duration: 1.0});
+            isFollowingPlane = true; // Resume following the plane
+        });
+    }
+
     ui.launchFgBtn.addEventListener('click', () => {
         ui.launchFgBtn.disabled = true;
         ui.launchFgBtn.textContent = "Launching...";
@@ -201,7 +293,9 @@
     map.on('dragstart zoomstart', () => { isFollowingPlane = false; });
     ui.recenterBtn.addEventListener('click', () => {
         isFollowingPlane = true;
-        map.setZoom(14, {animate: true});
+        // [FIX] Explicitly pan to plane's current position when recenter is clicked
+        if (planeMarker) map.setView(planeMarker.getLatLng(), map.getZoom(), {animate: true, duration: 0.5});
+        // The setInterval in updateHUD will keep it centered if isFollowingPlane is true
     });
 
     ui.findSitesBtn.addEventListener('click', findAndDisplaySites);

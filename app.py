@@ -132,7 +132,7 @@ def launch_fg():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     threading.Thread(target=telemetry_worker, args=(state,), daemon=True).start()
-    threading.Thread(target=console_debug_worker, daemon=True).start()
+    # threading.Thread(target=console_debug_worker, daemon=True).start()
     logging.info("Flask server starting. Open http://127.0.0.1:5000 in your browser.")
     app.run(debug=False, use_reloader=False)
     

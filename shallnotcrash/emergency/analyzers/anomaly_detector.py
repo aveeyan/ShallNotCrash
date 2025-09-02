@@ -1,11 +1,8 @@
+# shallnotcrash/emergency/analyzers/anomaly_detector.py
+
 #!/usr/bin/env python3
 """
-Robust Anomaly Detection for Flight Systems
-Integrated with emergency protocols standards
-
-REVISION: 2.0
-- Injects a default statistical baseline at initialization for instant readiness.
-- Corrects validation logic to enable detection for all monitored parameters.
+Robust Anomaly Detection for Flight Systems - FIXED VERSION
 """
 import numpy as np
 from typing import Dict, List, Optional
@@ -13,30 +10,25 @@ from dataclasses import dataclass, field
 from enum import IntEnum, auto
 import time
 from collections import defaultdict
-import warnings
-from .. import constants  # Updated import path
+import logging
 
-DEFAULT_CRUISE_BASELINE = {
-    "rpm": {"stats": {"mean": 2350.0, "median": 2350.0, "std": 50.0, "mad": 35.0, "count": 1000}},
-    "oil_pressure": {"stats": {"mean": 75.0, "median": 75.0, "std": 5.0, "mad": 3.0, "count": 1000}},
-    "oil_temp": {"stats": {"mean": 210.0, "median": 210.0, "std": 10.0, "mad": 7.0, "count": 1000}},
-    "cht": {"stats": {"mean": 380.0, "median": 380.0, "std": 20.0, "mad": 15.0, "count": 1000}},
-    "egt": {"stats": {"mean": 1350.0, "median": 1350.0, "std": 25.0, "mad": 18.0, "count": 1000}},
-    "fuel_flow": {"stats": {"mean": 9.5, "median": 9.5, "std": 0.5, "mad": 0.3, "count": 1000}},
-    "g_load": {"stats": {"mean": 1.0, "median": 1.0, "std": 0.05, "mad": 0.03, "count": 1000}},
-    "vibration": {"stats": {"mean": 0.1, "median": 0.1, "std": 0.05, "mad": 0.03, "count": 1000}},
-    "bus_volts": {"stats": {"mean": 28.0, "median": 28.0, "std": 0.2, "mad": 0.1, "count": 1000}},
-    "aileron": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.02, "mad": 0.01, "count": 1000}},
-    "elevator": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.02, "mad": 0.01, "count": 1000}},
-    "rudder": {"stats": {"mean": 0.0, "median": 0.0, "std": 0.01, "mad": 0.005, "count": 1000}},
-    "airspeed_kt": {"stats": {"mean": 115.0, "median": 115.0, "std": 5.0, "mad": 3.0, "count": 1000}},
-    "wind_speed_kt": {"stats": {"mean": 5.0, "median": 5.0, "std": 3.0, "mad": 2.0, "count": 1000}},
-    "altimeter_setting_hg": {"stats": {"mean": 29.92, "median": 29.92, "std": 0.1, "mad": 0.05, "count": 1000}},
-    "ambient_density": {"stats": {"mean": 0.002, "median": 0.002, "std": 0.0002, "mad": 0.0001, "count": 1000}}
+logger = logging.getLogger(__name__)
+
+# Realistic baseline values for C172P
+C172P_BASELINE = {
+    "rpm": {"mean": 2300.0, "std": 100.0},
+    "oil_pressure": {"mean": 60.0, "std": 5.0},
+    "oil_temp": {"mean": 180.0, "std": 20.0},
+    "cht": {"mean": 380.0, "std": 30.0},
+    "egt": {"mean": 1350.0, "std": 50.0},
+    "fuel_flow": {"mean": 9.5, "std": 1.0},
+    "g_load": {"mean": 1.0, "std": 0.2},
+    "vibration": {"mean": 0.1, "std": 0.05},
+    "bus_volts": {"mean": 28.0, "std": 0.5},
+    "control_asymmetry": {"mean": 0.0, "std": 0.1}
 }
 
 class FlightPhase(IntEnum):
-    """Flight phases with integer values for severity comparison"""
     UNKNOWN = 0
     TAKEOFF = 1
     CLIMB = 2
@@ -45,7 +37,6 @@ class FlightPhase(IntEnum):
     LANDING = 5
 
 class AnomalySeverity(IntEnum):
-    """Standardized severity levels matching emergency protocols"""
     NORMAL = 0
     ADVISORY = 1
     WARNING = 2
@@ -54,7 +45,6 @@ class AnomalySeverity(IntEnum):
 
 @dataclass
 class AnomalyScore:
-    """Enhanced anomaly detection result with protocol alignment"""
     parameter: str
     value: float
     baseline: float
@@ -67,237 +57,99 @@ class AnomalyScore:
     confidence: float = 1.0
     status_message: str = "Normal operation"
 
-class DetectionMode(IntEnum):
-    """Detection methods with integer values"""
-    Z_SCORE = 0
-    MODIFIED_Z = 1
-    IQR = 2
-
 class AnomalyDetector:
-    """Enhanced anomaly detection integrated with emergency protocols"""
+    """Simple but effective anomaly detector for real-time use"""
     
-    def __init__(self, mode: DetectionMode = DetectionMode.MODIFIED_Z):
-        self.PARAM_WEIGHTS = constants.SystemWeights.PARAMETERS
-        self.PHASE_THRESHOLDS = constants.DetectionParameters.Z_SCORE_THRESHOLDS
-        self.mode = mode
-        self.phase_models = {
-            phase: defaultdict(lambda: {
-                'values': [],
-                'stats': None,
-                'last_updated': 0
-            })
-            for phase in FlightPhase
-        }
+    def __init__(self):
+        self.baselines = C172P_BASELINE
+        self.min_samples = 10
+        self.history = {param: [] for param in self.baselines.keys()}
         
-        # --- FIX 1: INJECT BASELINE FOR INSTANT READINESS ---
-        # Pre-load the UNKNOWN phase with reliable cruise data.
-        # This makes the detector instantly effective.
-        self.phase_models[FlightPhase.UNKNOWN].update(DEFAULT_CRUISE_BASELINE)
-        
-        self.MIN_SAMPLES = 30
-        self.WARMUP_SAMPLES = 100
-        self.DEFAULT_THRESHOLDS = {
-            FlightPhase.TAKEOFF: 2.8,
-            FlightPhase.CLIMB: 3.0,
-            FlightPhase.CRUISE: 3.2,
-            FlightPhase.DESCENT: 3.0,
-            FlightPhase.LANDING: 2.5,
-            FlightPhase.UNKNOWN: 3.0
-        }
-        self._init_thresholds()
-    
-    def _init_thresholds(self):
-        """Initialize adaptive thresholds with emergency protocol alignment"""
-        self.dynamic_thresholds = {
-            phase: {
-                'base': threshold,
-                'current': threshold,
-                'trend': 0.0
-            }
-            for phase, threshold in self.DEFAULT_THRESHOLDS.items()
+        # Parameter-specific thresholds
+        self.thresholds = {
+            'rpm': 2.5,          # 2.5 sigma for RPM
+            'oil_pressure': 3.0, # 3.0 sigma for oil pressure (more sensitive)
+            'oil_temp': 2.8,
+            'cht': 2.8,
+            'egt': 2.8,
+            'fuel_flow': 3.0,
+            'g_load': 2.0,       # More sensitive to G-load changes
+            'vibration': 2.5,
+            'bus_volts': 3.0,
+            'control_asymmetry': 2.0
         }
     
-    def _mad(self, data):
-        """Median Absolute Deviation implementation"""
-        median = np.median(data)
-        return np.median(np.abs(data - median))
-    
-    def train(self, training_data: Dict[FlightPhase, Dict[str, List[float]]]):
-        """Train statistical models with protocol-aligned validation"""
-        for phase, params in training_data.items():
-            for param, values in params.items():
-                if len(values) >= self.MIN_SAMPLES and self._validate_parameter(param):
-                    self._update_model(phase, param, values)
-    
-    def _update_model(self, phase: FlightPhase, param: str, values: List[float]):
-        """Update model with outlier removal and protocol checks"""
-        values = np.array(values)
-        
-        if len(values) > self.WARMUP_SAMPLES:
-            q1, q3 = np.percentile(values, [25, 75])
-            iqr = q3 - q1
-            mask = (values >= (q1 - 1.5*iqr)) & (values <= (q3 + 1.5*iqr))
-            values = values[mask]
-        
-        stats = {
-            'mean': float(np.mean(values)),
-            'median': float(np.median(values)),
-            'std': max(float(np.std(values)), 0.01),
-            'mad': max(float(self._mad(values)), 0.01),
-            'q1': float(np.percentile(values, 25)),
-            'q3': float(np.percentile(values, 75)),
-            'count': len(values)
-        }
-        
-        self.phase_models[phase][param]['stats'] = stats
-        self.phase_models[phase][param]['last_updated'] = time.time()
-    
-    def detect(self, 
-              telemetry: Dict[str, float], 
-              flight_phase: FlightPhase = FlightPhase.UNKNOWN) -> Dict[str, AnomalyScore]:
-        """Detect anomalies with emergency protocol integration"""
+    def detect(self, telemetry: Dict[str, float], 
+               flight_phase: FlightPhase = FlightPhase.CRUISE) -> Dict[str, AnomalyScore]:
+        """Detect anomalies in telemetry data"""
         results = {}
-        current_phase = self._validate_phase(flight_phase)
         
         for param, value in telemetry.items():
-            if not self._validate_parameter(param) or not self._validate_value(param, value):
+            if param not in self.baselines:
                 continue
                 
-            model = self.phase_models[current_phase][param]
+            # Update history
+            self.history[param].append(value)
+            if len(self.history[param]) > 100:  # Keep reasonable history
+                self.history[param] = self.history[param][-100:]
             
-            if model['stats'] is None and len(model['values']) >= self.MIN_SAMPLES:
-                self._update_model(current_phase, param, model['values'])
+            # Get baseline stats
+            baseline = self.baselines[param]
+            threshold = self.thresholds.get(param, 3.0)
             
-            score = self._calculate_anomaly_score(param, value, current_phase)
-            results[param] = score
+            # Calculate z-score
+            z_score = abs(value - baseline["mean"]) / max(baseline["std"], 0.01)
             
-            self._update_parameter_history(param, value, current_phase, score.normalized_score)
+            # Determine severity
+            severity = self._score_to_severity(z_score, threshold)
+            is_anomaly = severity != AnomalySeverity.NORMAL
+            
+            results[param] = AnomalyScore(
+                parameter=param,
+                value=value,
+                baseline=baseline["mean"],
+                deviation=baseline["std"],
+                normalized_score=z_score,
+                is_anomaly=is_anomaly,
+                severity=severity,
+                flight_phase=flight_phase,
+                status_message=self._get_status_message(param, severity, z_score)
+            )
         
         return results
     
-    def _calculate_anomaly_score(self, param: str, value: float, phase: FlightPhase) -> AnomalyScore:
-        """Calculate score with protocol-aligned severity levels"""
-        model = self.phase_models[phase][param]
-        stats = model.get('stats') # Use .get() for safety
-        
-        if stats is None:
-            return AnomalyScore(
-                parameter=param, value=value, baseline=value, deviation=0.0,
-                normalized_score=0.0, is_anomaly=False, severity=AnomalySeverity.NORMAL,
-                flight_phase=phase, confidence=0.0, status_message="Insufficient data for detection"
-            )
-        
-        if self.mode == DetectionMode.Z_SCORE:
-            baseline = stats['mean']
-            deviation = stats['std']
-            score = abs(value - baseline) / deviation if deviation != 0 else 0.0
-        elif self.mode == DetectionMode.MODIFIED_Z:
-            baseline = stats['median']
-            deviation = stats['mad'] * 1.4826
-            score = abs(value - baseline) / deviation if deviation != 0 else 0.0
-        elif self.mode == DetectionMode.IQR:
-            baseline = stats['median']
-            iqr = stats['q3'] - stats['q1']
-            score = abs(value - baseline) / iqr if iqr != 0 else 0.0
-            
-        threshold = self.dynamic_thresholds[phase]['current']
-        is_anomaly = score > threshold
-        
-        severity = self._score_to_severity(score, threshold)
-        status_message = self._get_status_message(param, severity, score)
-        
-        return AnomalyScore(
-            parameter=param, value=value, baseline=baseline, deviation=deviation,
-            normalized_score=score, is_anomaly=is_anomaly, severity=severity,
-            flight_phase=phase, confidence=self._calculate_confidence(param, phase),
-            status_message=status_message
-        )
-    
     def _score_to_severity(self, score: float, threshold: float) -> AnomalySeverity:
-        """Convert statistical score to protocol severity levels"""
-        if score > threshold * 2.0: return AnomalySeverity.EMERGENCY
-        elif score > threshold * 1.5: return AnomalySeverity.CRITICAL
-        elif score > threshold * 1.2: return AnomalySeverity.WARNING
-        elif score > threshold: return AnomalySeverity.ADVISORY
-        return AnomalySeverity.NORMAL
+        """Convert z-score to severity level"""
+        if score > threshold * 2.0:
+            return AnomalySeverity.EMERGENCY
+        elif score > threshold * 1.5:
+            return AnomalySeverity.CRITICAL
+        elif score > threshold * 1.2:
+            return AnomalySeverity.WARNING
+        elif score > threshold:
+            return AnomalySeverity.ADVISORY
+        else:
+            return AnomalySeverity.NORMAL
     
     def _get_status_message(self, param: str, severity: AnomalySeverity, score: float) -> str:
-        """Generate protocol-aligned status messages"""
-        param_name = param.replace('_', ' ').upper()
+        """Generate appropriate status message"""
+        param_name = param.replace('_', ' ').title()
+        
         messages = {
             AnomalySeverity.NORMAL: f"{param_name} normal",
-            AnomalySeverity.ADVISORY: f"{param_name} showing minor deviation",
-            AnomalySeverity.WARNING: f"{param_name} out of normal range",
-            AnomalySeverity.CRITICAL: f"{param_name} CRITICAL LEVEL",
-            AnomalySeverity.EMERGENCY: f"{param_name} EMERGENCY CONDITION!"
+            AnomalySeverity.ADVISORY: f"{param_name} slightly abnormal",
+            AnomalySeverity.WARNING: f"{param_name} warning - monitor closely",
+            AnomalySeverity.CRITICAL: f"{param_name} CRITICAL - take action",
+            AnomalySeverity.EMERGENCY: f"{param_name} EMERGENCY - immediate action required"
         }
+        
         return messages.get(severity, "Status unknown")
     
-    def _update_parameter_history(self, param: str, value: float, phase: FlightPhase, score: float):
-        """Maintain parameter history with protocol checks"""
-        model = self.phase_models[phase][param]
-        model['values'].append(value)
-        
-        if 'scores' not in model: model['scores'] = []
-        model['scores'].append(score)
-        
-        if len(model['values']) % self.WARMUP_SAMPLES == 0:
-            self._adapt_model(param, phase)
-    
-    def _adapt_model(self, param: str, phase: FlightPhase):
-        """Adapt models with protocol-aligned adjustments"""
-        model = self.phase_models[phase][param]
-        
-        if len(model['values']) >= self.WARMUP_SAMPLES:
-            self._update_model(phase, param, model['values'][-self.WARMUP_SAMPLES:])
-            
-            recent_scores = model.get('scores', [])[-100:]
-            if recent_scores:
-                anomaly_rate = sum(s > self.dynamic_thresholds[phase]['current'] for s in recent_scores) / len(recent_scores)
-                adjustment = 0.1 * (0.05 - anomaly_rate)
-                new_threshold = self.dynamic_thresholds[phase]['current'] + adjustment
-                self.dynamic_thresholds[phase]['current'] = max(1.0, min(5.0, new_threshold))
-    
-    def _validate_phase(self, phase: FlightPhase) -> FlightPhase:
-        """Ensure valid flight phase"""
-        return phase if phase in FlightPhase else FlightPhase.UNKNOWN
-    
-    def _validate_parameter(self, param: str) -> bool:
-        """Check if parameter is monitored in protocols"""
-        return param in self.PARAM_WEIGHTS
-    
-    def _validate_value(self, param: str, value: float) -> bool:
-        """Validate sensor reading ranges against protocol thresholds"""
-        param_ranges = {
-            'rpm': (constants.EngineThresholds.RPM['MIN'], constants.EngineThresholds.RPM['MAX']),
-            'oil_pressure': (constants.EngineThresholds.OIL_PRESS['MIN'], constants.EngineThresholds.OIL_PRESS['MAX']),
-            'fuel_flow': (0, constants.EngineThresholds.FUEL_FLOW['MAX_NORMAL']),
-            'cht': (constants.EngineThresholds.CHT['MIN'], constants.EngineThresholds.CHT['MAX']),
-            'oil_temp': (constants.EngineThresholds.OIL_TEMP['MIN'], constants.EngineThresholds.OIL_TEMP['MAX']),
-            'egt': (constants.EngineThresholds.EGT['MIN'], constants.EngineThresholds.EGT['MAX'])
-        }
-        if param in param_ranges:
-            min_val, max_val = param_ranges[param]
-            return min_val <= value <= max_val
-        # --- FIX 2: ALLOW OTHER PARAMETERS TO BE ANALYZED ---
-        # If a parameter is not in the hard-limit check, it is still valid for statistical analysis.
-        return True
-    
-    def _calculate_confidence(self, param: str, phase: FlightPhase) -> float:
-        """Calculate detection confidence with protocol weights"""
-        model = self.phase_models[phase][param]
-        if not model.get('stats'): return 0.0
-        
-        sample_count = model['stats']['count']
-        base_confidence = min(1.0, sample_count / self.WARMUP_SAMPLES)
-        param_weight = self.PARAM_WEIGHTS.get(param, 0.1)
-        
-        return base_confidence * param_weight
+    def update_baseline(self, param: str, new_mean: float, new_std: float):
+        """Update baseline statistics for a parameter"""
+        if param in self.baselines:
+            self.baselines[param]["mean"] = new_mean
+            self.baselines[param]["std"] = max(new_std, 0.01)
 
-# Singleton instance with C172P configuration
-ANOMALY_DETECTOR = AnomalyDetector(mode=DetectionMode.MODIFIED_Z)
-
-def detect_anomalies(telemetry: Dict[str, float], 
-                    flight_phase: FlightPhase = FlightPhase.UNKNOWN) -> Dict[str, AnomalyScore]:
-    """Public interface for C172P anomaly detection"""
-    return ANOMALY_DETECTOR.detect(telemetry, flight_phase)
+# Singleton instance
+ANOMALY_DETECTOR = AnomalyDetector()

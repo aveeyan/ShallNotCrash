@@ -1,0 +1,13 @@
+pytest
+pytest-cov
+numpy
+scipy
+joblib
+scikit-learn
+pandas
+matplotlib
+folium
+openmeteo-requests
+requests-cache
+retry-requests
+plotly

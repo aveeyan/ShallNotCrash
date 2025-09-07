@@ -2,77 +2,137 @@
 
 class FGProps:
     #------------------------------------------------------------------------------
-    # ESSENTIAL PROPERTIES FOR AUTONOMOUS LANDING (CESSNA 172P)
+    # ESSENTIAL PROPERTIES FOR EMERGENCY DETECTION (CESSNA 172P)
     #------------------------------------------------------------------------------
 
     #--------------------------
-    # AIRCRAFT STATE
+    # ANNUNCIATORS (FG 2024.1+)
     #--------------------------
-    ALTITUDE_FT = "/position/altitude-ft"
-    ALTITUDE_AGL_FT = "/position/altitude-agl-ft"
-    GROUND_ELEV_FT = "/position/ground-elev-ft"
-    LATITUDE_DEG = "/position/latitude-deg"
-    LONGITUDE_DEG = "/position/longitude-deg"
-
-    ROLL_DEG = "/orientation/roll-deg"
-    PITCH_DEG = "/orientation/pitch-deg"
-    HEADING_DEG = "/orientation/heading-deg"
-
-    AIRSPEED_KT = "/velocities/airspeed-kt"
-    VERTICAL_SPEED_FPS = "/velocities/vertical-speed-fps"
+    class ANNUNCIATORS:
+        MASTER_CAUTION = "/instrumentation/annunciators/master-caution/state"
+        MASTER_WARNING = "/instrumentation/annunciators/master-warning/state"
+        
+        # Engine warnings
+        ENGINE_FIRE = "/instrumentation/annunciators/engines/fire"
+        OIL_PRESS_LOW = "/instrumentation/annunciators/engines/oil-pressure-low"
+        FUEL_PRESS_LOW = "/instrumentation/annunciators/systems/fuel/pressure-low"
+        VACUUM_FAIL = "/instrumentation/annunciators/systems/vacuum"
+        
+        # System warnings
+        CARB_HEAT_ON = "/instrumentation/annunciators/systems/carb-heat"
+        PITOT_HEAT_ON = "/instrumentation/annunciators/systems/pitot-heat"
 
     #--------------------------
-    # ENGINE PARAMETERS
+    # FUEL SYSTEM
     #--------------------------
-    ENGINE_RPM = "/engines/engine[0]/rpm"
-    ENGINE_THROTTLE = "/controls/engines/engine[0]/throttle"
-    ENGINE_MIXTURE = "/controls/engines/engine[0]/mixture"
-    ENGINE_RUNNING = "/engines/engine[0]/running"
+    class FUEL:
+        LEFT_QTY_GAL = "/consumables/fuel/tank[0]/level-gal_us"
+        RIGHT_QTY_GAL = "/consumables/fuel/tank[1]/level-gal_us"
+        TOTAL_GAL = "/consumables/fuel/total-gal_us"
+        DENSITY_PPG = "/consumables/fuel/tank[0]/density-ppg"
+        
+        # Controls
+        SELECTOR = "/controls/fuel/tank[0]/fuel_selector"  # 0=OFF, 1=LEFT, 2=RIGHT, 3=BOTH
+        PUMP = "/controls/engines/engine[0]/fuel-pump"
+
+    #--------------------------
+    # ENGINE SYSTEMS
+    #--------------------------
+    class ENGINE:
+        # Status
+        RPM = "/engines/engine/rpm"
+        EGT_F = "/engines/engine/egt-degf"
+        CHT_F = "/engines/engine/cht-degf"
+        OIL_TEMP_F = "/engines/engine/oil-temperature-degf"
+        OIL_PRESS_PSI = "/engines/engine/oil-pressure-psi"
+        FUEL_FLOW_GPH = "/engines/engine/fuel-flow-gph"
+        RUNNING = "/engines/engine/running"
+        ## TODO: Find property tree or alternative to vibration
+        VIBRATION = "/engines/engine/vibration"
+        
+        # Controls
+        THROTTLE = "/controls/engines/engine/throttle"
+        MIXTURE = "/controls/engines/engine/mixture"
+        CARB_HEAT = "/controls/anti-ice/engine/carb-heat"  # 0=OFF, 1=ON
+        MAGNETOS = "/controls/engines/engine/magnetos"  # 0=OFF, 1=R, 2=L, 3=BOTH
 
     #--------------------------
     # FLIGHT CONTROLS
     #--------------------------
-    AILERON = "/controls/flight/aileron"
-    ELEVATOR = "/controls/flight/elevator"
-    RUDDER = "/controls/flight/rudder"
-    ELEVATOR_TRIM = "/controls/flight/elevator-trim"
-    FLAPS = "/controls/flight/flaps"  # 0-1 (0=up, 1=full)
+    class CONTROLS:
+        AILERON = "/controls/flight/aileron"
+        ELEVATOR = "/controls/flight/elevator"
+        RUDDER = "/controls/flight/rudder"
+        ELEVATOR_TRIM = "/controls/flight/elevator-trim"
+        FLAPS = "/controls/flight/flaps"  # 0=UP, 0.33=10°, 0.66=20°, 1.0=FULL
+        BRAKES = "/controls/gear/brake-left"  # 0=OFF, 1=ON
 
     #--------------------------
-    # LANDING SYSTEMS
+    # ENVIRONMENTAL
     #--------------------------
-    # Gear status (C172 has fixed gear, but useful for simulation)
-    GEAR_DOWN = "/instrumentation/annunciators/gear/down"  # Always true for C172
-
-    # Brakes
-    BRAKE_LEFT = "/controls/gear/brake-left"
-    BRAKE_RIGHT = "/controls/gear/brake-right"
-    BRAKE_PARKING = "/controls/gear/brake-parking"
-
-    #--------------------------
-    # NAVIGATION AIDS
-    #--------------------------
-    NAV_FREQ_MHZ = "/instrumentation/nav[0]/frequencies/selected-mhz"
-    NAV_RADIAL_DEG = "/instrumentation/nav[0]/radials/actual-deg"
-    NAV_DISTANCE = "/instrumentation/nav[0]/nav-distance"
-    NAV_GS_NEEDLE_DEFLECTION = "/instrumentation/nav[0]/gs-needle-deflection"  # For ILS
+    class ENVIRONMENT:
+        OAT_C = "/environment/temperature-degc"
+        OAT_F = "/environment/temperature-degf"
+        HUMIDITY = "/environment/relative-humidity"
+        VISIBILITY = "/environment/visibility-m"
+        WIND_SPEED = "/environment/wind-speed-kt"
+        AMBIENT_DENSITY = "/environment/density-slugft3"
 
     #--------------------------
-    # AUTOPILOT INTERFACE
+    # FLIGHT STATE
     #--------------------------
-    AP_ENABLED = "/instrumentation/annunciators/autoflight/ap/enabled"
-    AP_MODE_NAV = "/instrumentation/annunciators/autoflight/ap/mode/nav"
-    AP_MODE_APR = "/instrumentation/annunciators/autoflight/ap/mode/apr"
+    class FLIGHT:
+        # Position
+        LATITUDE = "/position/latitude-deg"
+        LONGITUDE = "/position/longitude-deg"
+        ALTITUDE_FT = "/position/altitude-ft"
+        ALTITUDE_AGL_FT = "/position/altitude-agl-ft"
+        GROUND_ELEV_FT = "/position/ground-elev-ft"
+        YAW_RATE_DEGPS = "/orientation/yaw-rate-degps"
+        
+        # Attitude
+        PITCH_DEG = "/orientation/pitch-deg"
+        ROLL_DEG = "/orientation/roll-deg"
+        HEADING_DEG = "/orientation/heading-deg"
+
+        DOWN_RELGROUND_FPS ="/velocities/down-relground-fps"
+        EAST_RELGROUND_FPS ="/velocities/east-relground-fps"
+        NORTH_RELGROUND_FPS ="/velocities/north-relground-fps"
+        
+        SPEED_DOWN_FPS ="/velocities/speed-down-fps"
+        SPEED_NORTH_FPS ="/velocities/speed-north-fps"
+        SPEED_EAST_FPS ="/velocities/speed-east-fps"
+
+        EQUIVALENT_KT = "/velocities/equivalent-kt"
+        GROUNDSPEED_KT = "/velocities/groundspeed-kt"
+        GLIDESLOPE = "/velocities/glideslope"
+        MACH = "/velocities/mach"
+
+        UBODY_FPS = "/velocities/uBody-fps"
+        VBODY_FPS = "/velocities/vBody-fps"
+        WBODY_FPS = "/velocities/wBody-fps"
+
+        # Motion
+        AIRSPEED_KT = "/velocities/airspeed-kt"
+        VERTICAL_SPEED_FPS = "/velocities/vertical-speed-fps"
+        ACCEL_Z = "/accelerations/pilot/z-accel-fps_sec"
+        G_LOAD = "/accelerations/pilot-g"  # For stall detection
 
     #--------------------------
-    # SAFETY SYSTEMS
+    # ELECTRICAL SYSTEM
     #--------------------------
-    MASTER_CAUTION = "/instrumentation/annunciators/master-caution/state"
-    MASTER_WARNING = "/instrumentation/annunciators/master-warning/state"
-    ENGINE_OIL_PRESSURE_PSI = "/engines/engine[0]/oil-pressure-psi"
-    FUEL_PRESSURE_LOW = "/instrumentation/annunciators/systems/fuel/pressure-low"
+    class ELECTRICAL:
+        BATTERY_VOLTS = "/systems/electrical/volts"
+        ALTERNATOR_AMPS = "/systems/electrical/amps"
+        BUS_VOLTS = "/systems/electrical/volts"
 
     #--------------------------
     # SIMULATION CONTROL
     #--------------------------
-    SIM_SPEEDUP = "/sim/speedup"  # Useful for testing
+    class SIMULATION:
+        PAUSE = "/sim/freeze/master"
+        FREEZE = PAUSE
+        SIM_SPEEDUP = "/sim/speedup"
+
+    class INSTRUMENTATION:
+        ALTIMETER_HG = "/instrumentation/altimeter/setting-inhg"

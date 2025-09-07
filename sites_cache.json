@@ -1,0 +1,79 @@
+[
+  {
+    "type": "Runway",
+    "name": "BIKF 02/20",
+    "lat": 63.97818169,
+    "lon": -22.60543552,
+    "heading": 0.018340777788409923,
+    "length_m": 3046.4075615140628,
+    "width_m": 18.30324,
+    "surface": "Asphalt",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIKF 11/29",
+    "lat": 63.985042565,
+    "lon": -22.623689915,
+    "heading": 89.96508361076565,
+    "length_m": 3053.8668444075934,
+    "width_m": 18.30324,
+    "surface": "Asphalt",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIMS 07/25",
+    "lat": 64.181566,
+    "lon": -21.706450765,
+    "heading": 53.00882334524766,
+    "length_m": 540.4163164508421,
+    "width_m": 7.6169519999999995,
+    "surface": "Turf",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIMS 11/29",
+    "lat": 64.18121064,
+    "lon": -21.70983979,
+    "heading": 87.9507715882944,
+    "length_m": 370.1701722134503,
+    "width_m": 15.236952,
+    "surface": "Turf",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIRK 01/19",
+    "lat": 64.128963,
+    "lon": -21.937525335,
+    "heading": 355.27080705074076,
+    "length_m": 1563.053818643387,
+    "width_m": 13.749528,
+    "surface": "Asphalt",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIRK 06/24",
+    "lat": 64.129888,
+    "lon": -21.940267395,
+    "heading": 46.35371804881572,
+    "length_m": 853.1370114999995,
+    "width_m": 9.104376,
+    "surface": "Asphalt",
+    "score": 95
+  },
+  {
+    "type": "Runway",
+    "name": "BIRK 13/31",
+    "lat": 64.13007969,
+    "lon": -21.94403388,
+    "heading": 116.28006163735728,
+    "length_m": 1225.9896704750547,
+    "width_m": 13.749528,
+    "surface": "Asphalt",
+    "score": 95
+  }
+]

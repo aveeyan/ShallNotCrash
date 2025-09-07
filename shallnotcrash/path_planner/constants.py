@@ -1,0 +1,38 @@
+# shallnotcrash/path_planner/constants.py
+import math
+from shallnotcrash.airplane.constants import C172PConstants
+
+class PlannerConstants:
+    G_ACCEL_MPS2: float = 9.80665
+    EARTH_RADIUS_NM: float = 3440.065
+    METERS_TO_NM: float = 1 / 1852.0
+    TIME_DELTA_SEC = 5
+    METERS_PER_SECOND_PER_KNOT: float = 0.514444
+    MAX_ASTAR_ITERATIONS = 75000
+    SMOOTHED_PATH_NUM_POINTS = 50
+    FEET_PER_NAUTICAL_MILE = 6076.12
+    METERS_TO_FEET = 3.28084
+    
+    # [FIX] FAF distance reduced for light aircraft emergency scenarios.
+    FINAL_APPROACH_FIX_DISTANCE_NM = 1.0
+    
+    FINAL_APPROACH_GLIDESLOPE_DEG = 3.0
+    # ... (other constants unchanged)
+    GOAL_DISTANCE_TOLERANCE_NM: float = 0.5
+    GOAL_ALTITUDE_TOLERANCE_FT: float = 500.0
+    HIGH_ALTITUDE_THRESHOLD_FT = 3000.0
+    HIGH_ALTITUDE_TURN_INCENTIVE = 0.7
+    MAX_TURN_ANGLE_AGGRESSIVE = 45.0
+    MAX_TURN_ANGLE_CONSERVATIVE = 25.0
+    SMOOTHING_ITERATIONS_CONSERVATIVE = 2
+    SMOOTHING_ITERATIONS_AGGRESSIVE = 1
+    MAX_CORRIDOR_DEVIATION_NM = 2.0
+
+class AircraftProfile:
+    SAFE_DEFAULT_GLIDE_RATIO = 9.0
+    GLIDE_RATIO: float = SAFE_DEFAULT_GLIDE_RATIO
+    GLIDE_SPEED_KTS: float = C172PConstants.EMERGENCY['GLIDE_SPEED']
+    STANDARD_TURN_RATE_DEG_S = 3.0
+    TURN_DRAG_PENALTY_FACTOR = 1.5
+    STANDARD_BANK_ANGLE_DEG = 25.0
+    
